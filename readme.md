@@ -1,4 +1,8 @@
-# Verification
+# Formal Verification with Lean4
+
+The main purpose of this repository is formal verification of this article:
+
+TODO: add link
 
 ## Build
 
