@@ -15,4 +15,12 @@ lake build
 
 lake build FinLin.Main
 lake env lean FinLin/Main.lean
+
+leanblueprint web
+leanblueprint serve
 ```
+
+## References
+
+ - https://github.com/PatrickMassot/leanblueprint
+

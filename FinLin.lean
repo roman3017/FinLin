@@ -1,1 +1,1 @@
-import FinLin.Main
+import FinLin.finmap
