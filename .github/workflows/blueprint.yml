@@ -1,9 +1,12 @@
 name: Compile blueprint
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Lean Build Check"]
+    types:
+      - completed
     branches:
-      - main # Trigger on pushes to the default branch
+      - main
   workflow_dispatch:        # Allow manual triggering of the workflow from the GitHub Actions interface
 
 # Cancel previous runs if a new commit is pushed to the same PR or branch
@@ -19,6 +22,7 @@ permissions:
 
 jobs:
   build_project:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Build project
     steps:
