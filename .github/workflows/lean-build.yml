@@ -2,13 +2,13 @@ name: Lean Build Check
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     paths:
       - 'lakefile.lean'
       - 'FinLin/**'
       - 'blueprint/**'
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
     paths:
       - 'lakefile.lean'
       - 'FinLin/**'
@@ -32,6 +32,15 @@ jobs:
       
     - name: Build project
       run: ~/.elan/bin/lake build
+      
+    - name: Send dispatch event on success
+      if: success()
+      run: |
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          -d '{"event_type": "lean-build-success"}'
       
     - name: Build PDFs from LaTeX
       uses: xu-cheng/texlive-action@v2

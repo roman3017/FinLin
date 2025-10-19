@@ -1,6 +1,8 @@
 name: Compile blueprint
 
 on:
+  repository_dispatch:
+    types: [lean-build-success]
   workflow_run:
     workflows: ["Lean Build Check"]
     types:
@@ -22,7 +24,7 @@ permissions:
 
 jobs:
   build_project:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'repository_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Build project
     steps:
