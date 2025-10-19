@@ -1,8 +1,8 @@
 # Formal Verification with Lean4
 
-The main purpose of this repository is formal verification of this article:
+The main purpose of this repository is formal verification of results in this report:
 
-TODO: add link
+ - https://doi.org/10.13140/RG.2.2.27652.59523
 
 ## Build
 
@@ -23,4 +23,3 @@ leanblueprint serve
 ## References
 
  - https://github.com/PatrickMassot/leanblueprint
-
