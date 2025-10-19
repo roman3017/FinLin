@@ -28,10 +28,10 @@ jobs:
         source $HOME/.elan/env
         
     - name: Update dependencies
-      run: lake update
+      run: ~/.elan/bin/lake update
       
     - name: Build project
-      run: lake build
+      run: ~/.elan/bin/lake build
       
     - name: Build PDFs from LaTeX
       uses: xu-cheng/texlive-action@v2
