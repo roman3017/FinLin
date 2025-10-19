@@ -1,10 +1,12 @@
 \begin{definition}[Adjacency Matrix of a Function]
+\label{def:adjacencyMatrix}
 \lean{adjacencyMatrix}
 \leanok
 The function $f$ is represented by an $n \times n$ adjacency matrix $A$, where the entry $A_{ij} = 1$ if $j=f(i)$ and $A_{ij}=0$ otherwise. With this convention, each row of $A$ contains exactly one non-zero entry.
 \end{definition}
 
 \begin{lemma}
+\label{lem:adjugate_diag_degree}
 \lean{adjugate_diag_degree}
 For any vertex $i$, the diagonal entry of the adjugate has degree $n-1$.
 \end{lemma}
@@ -16,6 +18,7 @@ the determinant of the minor has degree $n-1$.
 \end{proof}
 
 \begin{lemma}
+\label{lem:adjugate_diag_leading_coeff}
 \lean{adjugate_diag_leading_coeff}
 The leading coefficient of the diagonal adjugate entry $M_{ii}$ is $1$.
 \end{lemma}
@@ -25,6 +28,7 @@ The leading coefficient comes from the monic property of the characteristic poly
 \end{proof}
 
 \begin{lemma}
+\label{lem:adjugate_offdiag_degree}
 \lean{adjugate_offdiag_degree}
 For distinct vertices $i \neq j$, $\deg(M_{ij}) \leq n-2$.
 \end{lemma}
@@ -35,6 +39,7 @@ This involves removing two rows/columns, so the degree is at most $n-2$.
 \end{proof}
 
 \begin{lemma}
+\label{lem:exists_large_eval_nonzero}
 \lean{exists_large_eval_nonzero}
 For a monic polynomial of degree $n > 0$, there exists some large integer where it doesn't vanish.
 \end{lemma}
@@ -44,6 +49,7 @@ A non-constant polynomial has finitely many roots, so outside a certain range it
 \end{proof}
 
 \begin{lemma}
+\label{lem:charpoly_monic_degree}
 \lean{charpoly_monic_degree}
 \leanok
 The characteristic polynomial is monic of degree $n$.
@@ -54,8 +60,9 @@ This follows from standard properties of characteristic polynomials.
 \end{proof}
 
 \begin{lemma}
+\label{lem:charpoly_eval_nonzero_large}
 \lean{charpoly_eval_nonzero_large}
-\uses{charpoly_monic_degree, exists_large_eval_nonzero}
+\uses{lem:charpoly_monic_degree, lem:exists_large_eval_nonzero}
 For large enough $a$, the characteristic polynomial doesn't vanish.
 \end{lemma}
 
@@ -64,6 +71,7 @@ Since the characteristic polynomial is monic of degree $n$, and $n > 0$, it has 
 \end{proof}
 
 \begin{lemma}
+\label{lem:adjugate_identity}
 \lean{adjugate_identity}
 The adjugate identity: $(xI - A) \cdot adj(xI - A) = \det(xI - A) \cdot I$.
 \end{lemma}
@@ -73,6 +81,7 @@ This is the standard adjugate identity for matrices.
 \end{proof}
 
 \begin{lemma}
+\label{lem:linear_relation_from_adjugate}
 \lean{linear_relation_from_adjugate}
 The linear relation from the adjugate identity.
 \end{lemma}
@@ -83,7 +92,8 @@ Rearranging gives $A \cdot M_a \equiv a \cdot M_a \pmod{m}$.
 \end{proof}
 
 \begin{theorem}
-\lean{linear_representation_corollary}
+\label{thm:linear_representation}
+%\lean{linear_representation}
 Any function $f: [n] \to [n]$ has a linear representation modulo some $m$.
 \end{theorem}
 
@@ -92,10 +102,12 @@ Using the main technical theorem and the linear relation from adjugate.
 \end{proof}
 
 
-\begin{theorem} \label{thm:main_tech}
+\begin{theorem} 
+\label{thm:main_technical_theorem}
 \lean{main_technical_theorem}
 Let $A$ be the adjacency matrix of a functional graph on $n$ vertices. Let $M(x) = \text{adj}(xI - A)$ be the adjugate of its characteristic matrix. There exists a permutation $\sigma$ of the vertices such that for the vector $v = (0, 1, \ldots, n-1)^T$, the entries of the vector $M(x)v$ are polynomials in $x$ whose values are strictly increasing for sufficiently large real $x$.
 \end{theorem}
+
 \begin{proof}
 The proof relies on analyzing the polynomial entries of $M(x)$ by decomposing the functional graph.
 
@@ -110,9 +122,10 @@ w_{i'}(x) - w_i(x) = (i' - i)x^{n-1} + O(x^{n-2})
 Since $i' - i \geq 1$, this difference is positive for sufficiently large $x$. Thus, $w_0(x) < w_1(x) < \cdots < w_{n-1}(x)$, concluding the proof.
 \end{proof}
 
-\begin{corollary} \label{cor:main}
+\begin{corollary} 
+\label{cor:linear_representation_corollary}
 \lean{linear_representation_corollary}
-\uses{main_technical_theorem, charpoly_eval_nonzero_large, linear_relation_from_adjugate}
+\uses{thm:main_technical_theorem, lem:charpoly_eval_nonzero_large, lem:linear_relation_from_adjugate}
 For any function $f: Y \to Y$ on a finite set $Y$, there exists an integer modulus $m$, a constant $a \in \mathbb{Z}/m\mathbb{Z}$, and an injective map $j: Y \to \mathbb{Z}/m\mathbb{Z}$ such that for all $y \in Y$,
 $$j(f(y)) \equiv a \cdot j(y) \pmod{m}$$
 \end{corollary}
@@ -120,13 +133,13 @@ $$j(f(y)) \equiv a \cdot j(y) \pmod{m}$$
 \begin{proof}
 Let $A$ be the adjacency matrix of $f$ as previously defined. The fundamental identity for the adjugate matrix is $(xI - A) \cdot \text{adj}(xI - A) = \det(xI - A) \cdot I$. Let $M(x) = \text{adj}(xI - A)$ and $p(x) = \det(xI - A)$. This identity, $xM(x) - AM(x) = p(x)I$, holds for all $x$.
 
-Choose an integer $a$ sufficiently large for Theorem \ref{thm:main_tech} to hold. Let $M_0 = M(a)$ and $m = p(a)$. The identity becomes $aM_0 - AM_0 = mI$. Working modulo $m$, we have $AM_0 \equiv aM_0 \pmod{m}$. The $(i, k)$-th entry of $AM_0$ is $\sum_{l} A_{il} (M_0)_{lk} = (M_0)_{f(i), k}$. Thus, the matrix congruence implies:
+Choose an integer $a$ sufficiently large for Theorem \ref{thm:main_technical_theorem} to hold. Let $M_0 = M(a)$ and $m = p(a)$. The identity becomes $aM_0 - AM_0 = mI$. Working modulo $m$, we have $AM_0 \equiv aM_0 \pmod{m}$. The $(i, k)$-th entry of $AM_0$ is $\sum_{l} A_{il} (M_0)_{lk} = (M_0)_{f(i), k}$. Thus, the matrix congruence implies:
 \[
 (M_0)_{f(i), k} \equiv a \cdot (M_0)_{i, k} \pmod{m} \quad \text{for all } i, k.
 \]
-We now define the embedding $j$. Let $\sigma$ be the permutation from Theorem \ref{thm:main_tech} and $v=(0, 1, \dots, n-1)^T$. Define a vector of integers $w = M_0 v$. The map $j: Y \to \mathbb{Z}/m\mathbb{Z}$ is given by $j(y_i) = w_i \pmod m$, where $y_i$ is the $i$-th vertex in the permuted order.
+We now define the embedding $j$. Let $\sigma$ be the permutation from Theorem \ref{thm:main_technical_theorem} and $v=(0, 1, \dots, n-1)^T$. Define a vector of integers $w = M_0 v$. The map $j: Y \to \mathbb{Z}/m\mathbb{Z}$ is given by $j(y_i) = w_i \pmod m$, where $y_i$ is the $i$-th vertex in the permuted order.
 
-By Theorem \ref{thm:main_tech}, the integer entries of $w$ are strictly increasing. They are therefore distinct. Since $\deg(p(x))=n$ while $\deg(w_i(x)) = n-1$, for large $a$, the modulus $m=p(a)$ grows faster than the entries of $w$. This ensures the $w_i$ are also distinct modulo $m$, so $j$ is an injection.
+By Theorem \ref{thm:main_technical_theorem}, the integer entries of $w$ are strictly increasing. They are therefore distinct. Since $\deg(p(x))=n$ while $\deg(w_i(x)) = n-1$, for large $a$, the modulus $m=p(a)$ grows faster than the entries of $w$. This ensures the $w_i$ are also distinct modulo $m$, so $j$ is an injection.
 
 Finally, we verify the linear relation for any vertex $y_i$:
 
@@ -137,4 +150,5 @@ j(f(y_i)) = w_{f(i)} &= \sum_{k=0}^{n-1} (M_0)_{f(i), k} v_k \\
 &\equiv a \cdot w_i \equiv a \cdot j(y_i) &&\pmod{m}
 \end{align*}
 This completes the construction and the proof of the corollary.
+
 \end{proof}

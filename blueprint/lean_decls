@@ -7,6 +7,5 @@ charpoly_monic_degree
 charpoly_eval_nonzero_large
 adjugate_identity
 linear_relation_from_adjugate
-linear_representation_corollary
 main_technical_theorem
 linear_representation_corollary
