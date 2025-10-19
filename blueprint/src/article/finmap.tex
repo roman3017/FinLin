@@ -2,12 +2,14 @@
 \label{def:adjacencyMatrix}
 \lean{adjacencyMatrix}
 \leanok
+%keep
 The function $f$ is represented by an $n \times n$ adjacency matrix $A$, where the entry $A_{ij} = 1$ if $j=f(i)$ and $A_{ij}=0$ otherwise. With this convention, each row of $A$ contains exactly one non-zero entry.
 \end{definition}
 
 \begin{lemma}
 \label{lem:adjugate_diag_degree}
 \lean{adjugate_diag_degree}
+%keep
 For any vertex $i$, the diagonal entry of the adjugate has degree $n-1$.
 \end{lemma}
 
@@ -20,6 +22,7 @@ the determinant of the minor has degree $n-1$.
 \begin{lemma}
 \label{lem:adjugate_diag_leading_coeff}
 \lean{adjugate_diag_leading_coeff}
+%keep
 The leading coefficient of the diagonal adjugate entry $M_{ii}$ is $1$.
 \end{lemma}
 
@@ -30,6 +33,7 @@ The leading coefficient comes from the monic property of the characteristic poly
 \begin{lemma}
 \label{lem:adjugate_offdiag_degree}
 \lean{adjugate_offdiag_degree}
+%keep
 For distinct vertices $i \neq j$, $\deg(M_{ij}) \leq n-2$.
 \end{lemma}
 
@@ -105,6 +109,7 @@ Using the main technical theorem and the linear relation from adjugate.
 \begin{theorem} 
 \label{thm:main_technical_theorem}
 \lean{main_technical_theorem}
+%keep
 Let $A$ be the adjacency matrix of a functional graph on $n$ vertices. Let $M(x) = \text{adj}(xI - A)$ be the adjugate of its characteristic matrix. There exists a permutation $\sigma$ of the vertices such that for the vector $v = (0, 1, \ldots, n-1)^T$, the entries of the vector $M(x)v$ are polynomials in $x$ whose values are strictly increasing for sufficiently large real $x$.
 \end{theorem}
 
@@ -126,6 +131,7 @@ Since $i' - i \geq 1$, this difference is positive for sufficiently large $x$. T
 \label{cor:linear_representation_corollary}
 \lean{linear_representation_corollary}
 \uses{thm:main_technical_theorem, lem:charpoly_eval_nonzero_large, lem:linear_relation_from_adjugate}
+%keep
 For any function $f: Y \to Y$ on a finite set $Y$, there exists an integer modulus $m$, a constant $a \in \mathbb{Z}/m\mathbb{Z}$, and an injective map $j: Y \to \mathbb{Z}/m\mathbb{Z}$ such that for all $y \in Y$,
 $$j(f(y)) \equiv a \cdot j(y) \pmod{m}$$
 \end{corollary}
