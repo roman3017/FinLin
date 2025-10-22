@@ -1,4 +1,11 @@
 .lake/
-lake-manifest.json
 blueprint/web/
 blueprint/print/
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.toc
+*.synctex.gz
+*.paux

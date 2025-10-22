@@ -27,8 +27,8 @@ jobs:
         curl -L https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
         source $HOME/.elan/env
         
-    - name: Update dependencies
-      run: ~/.elan/bin/lake update
+    - name: Get cache
+      run: ~/.elan/bin/lake exe cache get
       
     - name: Build project
       run: ~/.elan/bin/lake build

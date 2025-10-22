@@ -37,7 +37,7 @@ The proof uses:
 This formalization is based on the paper in `lean/finmap.tex`.
 -/
 
-namespace Cursor.Opus
+--namespace Cursor.Opus
 
 open Matrix BigOperators
 
@@ -432,4 +432,4 @@ example {n : ℕ} [NeZero n] [Fact (n > 0)] :
     has_linear_representation (id : ZMod n → ZMod n) := by
   sorry
 
-end Cursor.Opus
+--end Cursor.Opus
