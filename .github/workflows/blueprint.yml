@@ -42,6 +42,9 @@ jobs:
       - name: Build project
         run: ~/.elan/bin/lake build FinLin
 
+      - name: Update doc project
+        run: ~/.elan/bin/lake update «doc-gen4»
+
       - name: Cache API docs
         uses: actions/cache@v4
         with:

@@ -20,7 +20,7 @@ lake build
 lake build FinLin.Main
 lake env lean FinLin/Main.lean
 
-leanblueprint web
+leanblueprint all
 leanblueprint serve
 ```
 
