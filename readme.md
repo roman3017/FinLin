@@ -14,7 +14,7 @@ The current status is here:
 curl -L https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
 source $HOME/.elan/env
 
-lake update
+lake exe cache get
 lake build
 
 lake build FinLin.Main
