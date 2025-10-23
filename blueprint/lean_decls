@@ -1,12 +1,10 @@
 func_matrix
 func_matrix_eq
 adj_eq
-func_matrix_row_sum
-single_element_sum_le
 det_degree_le_sum_degrees
 adj_poly
+polynomial_positive_for_largeZ
 adj_poly_strict_increasing
 zmodToFin
 has_linear_representation
 linear_representation
-quadratic_in_Z3_has_linear_rep
