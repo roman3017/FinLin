@@ -37,8 +37,6 @@ The proof uses:
 This formalization is based on the paper in `lean/finmap.tex`.
 -/
 
---namespace Cursor.Opus
-
 open Matrix BigOperators
 
 /--
@@ -221,13 +219,13 @@ lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n)
           trans (if i'.val = i'.val then (1 : ℕ) else 0)
           · have : (⟨i'.val, hi'⟩ : {x : Fin n // x ≠ i}) ∈ (Finset.univ : Finset {x : Fin n // x ≠ i}) := Finset.mem_univ _
             refine Finset.sum_eq_single_of_mem (⟨i'.val, hi'⟩ : {x : Fin n // x ≠ i}) this ?_
-            intro b _ hb
-            rw [ite_eq_right_iff]
-            intro heq
-            exfalso
-            apply hb
-            ext
-            sorry -- Complex subtype equality
+            intro d _ hd
+            have h : i'.val ≠ d.val := by
+              intro h
+              apply hd
+              ext
+              exact congrArg Fin.val (id (Eq.symm h))
+            simp [h]
           · simp
       _ = n - 2 := by
         classical
@@ -271,7 +269,7 @@ lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n)
               simp
             rw [eq2, eq1]
           · exact h_ne_count
-        sorry -- Complex cardinality calculation causing timeout
+        rw [h_key, card_subtype]; rfl
 
 
 /--
@@ -398,9 +396,15 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           calc Fintype.card {x // x ≠ j}
             _ = Fintype.card {x : Fin n // ¬(x = j)} := by simp [ne_eq]
             _ = Fintype.card (Fin n) - Fintype.card {x : Fin n // x = j} :=
-                  Fintype.card_subtype_compl (fun x => x = j)
-            _ = n - 1 := by
-                  sorry -- Complex cardinality calculation
+                Fintype.card_subtype_compl (fun x => x = j)
+            _ = n - Fintype.card {x : Fin n // x = j} := by
+                have : Fintype.card {x : Fin n // x = j} = 1 := by simp
+                rw [this]
+                have : n - 1 + 1 = n := by omega
+                refine Nat.sub_eq_of_eq_add ?_
+                rw [this]
+                sorry
+            _ = n - 1 := by simp
         rw [← card_eq]
         exact charpoly_natDegree_eq_dim (A.submatrix (fun (i : {x // x ≠ j}) => i.val)
                                                       (fun (k : {x // x ≠ j}) => k.val))
@@ -431,7 +435,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
          -- Direct degree analysis for off-diagonal case using det_degree_le_sum_degrees
          -- The charmatrix has diagonal entries of degree 1, off-diagonal of degree 0
          -- After updateRow j (Pi.single i 1), we remove row j and column i
-         -- This removes 2 diagonal entries (jj and ii), so sum ≤ n - 2
+         -- This removes 2 diagonal entries (jj and ii), so sum ≤ n-2
          -- We use det_degree_le_sum_degrees with a direct calculation
          -- The key insight: after updateRow j (Pi.single i 1), we have:
          -- - Row j becomes all 0s except 1 at column i (all degree 0)
@@ -1034,17 +1038,17 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
       rw [h_ifin]
 
     -- Now we have:
-    -- h_adj: y x ⟨(f (i_fin.val : ZMod n)).val, _⟩ = x * y x i_fin - m_val * i_fin.val
+    -- h_adj: y x ⟨(f (i_fin.val : ZMod n)).val, _⟩ = x * y x i_fin - m_val * v i_fin
     -- h_fi: ⟨(f (i_fin.val : ZMod n)).val, _⟩ = fi_fin
     -- Need to prove: j (f i) = (x : ZMod modulus) * j i
     -- where j (f i) = (y x fi_fin : ZMod modulus) and j i = (y x i_fin : ZMod modulus)
 
     -- From h_adj and h_fi, we get: y x fi_fin = x * y x i_fin - m_val * i_fin.val
     -- Cast to ZMod modulus: (y x fi_fin : ZMod modulus) = (x * y x i_fin - m_val * i_fin.val : ZMod modulus)
-    -- Since modulus = m_val.natAbs and m_val > 0, we have m_val ≡ 0 (mod modulus)
+    -- Since modulus = m_val.natAbs and m_val > 0, we have m_val ≡ 0 (modulus)
     -- So: (y x fi_fin : ZMod modulus) = (x : ZMod modulus) * (y x i_fin : ZMod modulus)
 
-    -- First establish that y x fi_fin = x * y x i_fin - m_val * i_fin.val
+    -- Establish that y x fi_fin = x * y x i_fin - m_val * i_fin.val
     have h_y_relation : y x fi_fin = x * y x i_fin - m_val * v i_fin := by
       calc y x fi_fin
           = y x ⟨ZMod.val (f (i_fin.val : ZMod n)), ZMod.val_lt _⟩ := by rw [← h_fi]
@@ -1055,7 +1059,7 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
 
     -- Now cast to ZMod modulus
     -- From h_y_relation and h_v_eq: y x fi_fin = x * y x i_fin - m_val * i_fin.val
-    -- Casting to ZMod modulus and using m_val ≡ 0 (mod modulus):
+    -- Casting to ZMod modulus and using m_val ≡ 0 (modulus):
     calc j (f i)
         = (y x fi_fin : ZMod modulus) := rfl
       _ = ((x * y x i_fin - m_val * (i_fin.val : ℤ)) : ZMod modulus) := by
@@ -1214,9 +1218,7 @@ example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fi
     -- f(0) = 0, f(1) = 1, f(2) = 1
     -- j(0) = 0, j(1) = 12, j(2) = 21
     -- a = 4
-    -- Check: j(f(0)) = j(0) = 0 = 4*0 = a*j(0) ✓
-    -- Check: j(f(1)) = j(1) = 12 = 4*12 mod 36 = 48 mod 36 = 12 ✓
-    -- Check: j(f(2)) = j(1) = 12 = 4*21 mod 36 = 84 mod 36 = 12 ✓
+    -- Check: j(f(0)) = j(0) = 0 = 4·0 = a·j(0) ✓
+    -- Check: j(f(1)) = j(1) = 12 = 4·12 mod 36 = 48 mod 36 = 12 ✓
+    -- Check: j(f(2)) = j(1) = 12 = 4·21 mod 36 = 84 mod 36 = 12 ✓
     fin_cases i <;> decide
-
---end Cursor.Opus
