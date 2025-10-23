@@ -164,7 +164,8 @@ taking each residue class to its unique representative in $\{0,1,\ldots,n-1\}$.
 \label{def:linear_representation}
 \lean{has_linear_representation}
 \leanok
-Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function. A linear representation of $f$ is a function $j: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/m\mathbb{Z}$ such that for all $i\in \mathbb{Z}/n\mathbb{Z}$,
+Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function. A linear representation of $f$ is an injective function $j: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/m\mathbb{Z}$ 
+such that for all $i\in \mathbb{Z}/n\mathbb{Z}$,
 $$j(f(i)) = a \cdot j(i)$$
 in $\mathbb{Z}/m\mathbb{Z}$, where $m$ is a positive integer and $a$ is a constant from $\mathbb{Z}/m\mathbb{Z}$ depending on $f$.
 \end{definition}
@@ -173,7 +174,7 @@ in $\mathbb{Z}/m\mathbb{Z}$, where $m$ is a positive integer and $a$ is a consta
 \label{thm:linear_representation}
 \lean{linear_representation}
 \leanok
-\uses{def:func_matrix, def:zmodToFin, lem:adj_eq, lem:adj_poly_strict_increasing}
+\uses{def:func_matrix, def:zmodToFin, lem:adj_eq, lem:adj_poly_strict_increasing, def:linear_representation}
 Any function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a linear representation.
 \end{theorem}
 
