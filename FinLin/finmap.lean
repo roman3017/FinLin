@@ -246,7 +246,9 @@ lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n)
       _ = n - 2 := by
         classical
         have card_subtype : Fintype.card {x : Fin n // x ≠ j} = n - 1 := by
-          simp [Fintype.card_subtype_compl]
+          calc Fintype.card {x : Fin n // x ≠ j}
+            = Fintype.card (Fin n) - 1 := by simp [Fintype.card_subtype_compl]
+            _ = n - 1 := by simp [Fintype.card_fin]
         have h_key : (∑ i' : {x : Fin n // x ≠ j}, if i'.val ≠ i then 1 else 0 : ℕ) =
                      Fintype.card {x : Fin n // x ≠ j} - 1 := by
           change (Finset.univ : Finset {x : Fin n // x ≠ j}).sum (fun i' => if i'.val ≠ i then 1 else 0) =
@@ -436,7 +438,69 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
         -- a matrix where expanding by row j leaves us with the submatrix excluding row j and column i
         -- We have the lemma charMatrix_offdiag_minor_sum_degrees that says this sum is n-2
         -- Combined with det_degree_le_sum_degrees, we get the bound
-        sorry -- Technical: connect det_degree_le_sum_degrees with charMatrix_offdiag_minor_sum_degrees
+
+        let M' := (charmatrix A).updateRow j (Pi.single i 1)
+
+        -- Step 1: Apply det_degree_le_sum_degrees to bound the determinant degree
+        have h_deg_bound : M'.det.natDegree ≤ ∑ i' : Fin n, ∑ j' : Fin n, (M' j' i').natDegree := by
+          convert det_degree_le_sum_degrees M'
+          -- convert handles typeclass differences automatically
+
+        -- Step 2: Understand the structure of M' = (charmatrix A).updateRow j (Pi.single i 1)
+        -- Row j has been replaced with Pi.single i 1, which has:
+        --   - entry 1 at position i (degree 0)
+        --   - entry 0 at all other positions (degree 0)
+        -- All other rows are from charmatrix A
+
+        -- Step 3: Compute the sum of degrees for M'
+        -- For row j (the updated row): all entries have degree 0
+        have h_row_j_deg : ∑ j' : Fin n, (M' j' j).natDegree = 0 := by
+          sorry -- Pi.single i 1 has constant entries, all degree 0
+
+        -- For other rows k ≠ j: entries come from charmatrix A
+        -- charmatrix A has diagonal entries of degree 1, off-diagonal of degree 0
+        have h_other_rows : ∀ k : Fin n, k ≠ j →
+            ∑ j' : Fin n, (M' j' k).natDegree = 1 := by
+          intro k hk
+          sorry -- charmatrix row has one diagonal entry of degree 1, rest degree 0
+
+        -- Step 4: Sum over all columns
+        have h_total_sum : ∑ i' : Fin n, ∑ j' : Fin n, (M' j' i').natDegree = n - 1 := by
+          sorry -- Sum h_row_j_deg (contributes 0) and h_other_rows (contributes (n-1)×1)
+
+        -- Step 5: But we can get a tighter bound by observing the structure
+        -- updateRow j (Pi.single i 1) means when we expand det by row j,
+        -- only the entry at (j, i) is nonzero, giving us the submatrix with
+        -- row j and column i deleted
+
+        -- The submatrix excludes:
+        --   - diagonal entry at (j, j) if j is not in the deleted column i
+        --   - diagonal entry at (i, i) when we delete column i
+        -- This removes 2 diagonal entries (of degree 1 each) if i ≠ j
+
+        -- Step 6: The submatrix (charmatrix A) with row j and column i deleted
+        -- has sum of entry degrees = n - 2
+        have h_submatrix_sum : ∑ i' : {x : Fin n // x ≠ j}, ∑ j' : {x : Fin n // x ≠ i},
+            (charmatrix A i'.val j'.val).natDegree = n - 2 := by
+          -- Convert to handle potential typeclass mismatch
+          convert charMatrix_offdiag_minor_sum_degrees A i j hij
+
+        -- Step 7: Connect det of M' to det of submatrix
+        -- When we expand M'.det by row j using cofactor expansion,
+        -- the only nonzero term comes from position (j, i) with coefficient 1
+        -- This gives det(submatrix with row j and column i deleted)
+        -- The submatrix is (n-1)×(n-1), hence square, with determinant well-defined
+        have h_det_eq_submatrix : ∃ (p : Polynomial ℤ), M'.det = p ∧ p.natDegree ≤ n - 2 := by
+          sorry -- Use cofactor expansion or similar technique
+
+        -- Step 8: Extract the bound
+        obtain ⟨p, h_eq, h_deg⟩ := h_det_eq_submatrix
+
+        -- Step 9: Conclude
+        calc M'.det.natDegree
+            = p.natDegree := by rw [h_eq]
+          _ ≤ n - 2 := h_deg
+
       exact h_bound_deg
 
 /--
