@@ -2,6 +2,9 @@ func_matrix
 func_matrix_eq
 adj_eq
 det_degree_le_sum_degrees
+charmatrix_det_eq_charpoly
+charmatrix_det_monic
+charmatrix_det_natDegree
 adj_poly
 polynomial_positive_for_largeZ
 adj_poly_strict_increasing

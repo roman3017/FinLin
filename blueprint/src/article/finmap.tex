@@ -1,28 +1,6 @@
 % Formalization of Linear Representation of Functions
 % Lean 4 formalization in: lean/cursor/Cursor/Opus.lean
 %
-% Status Summary (Main Results):
-% - Definition func_matrix: ✓ Complete
-% - Lemma func_matrix_eq: ✓ Complete (fully proven, no sorry)
-% - Lemma adj_eq: ✓ Complete (fully proven, no sorry)
-% - Lemma adj_poly: Mostly complete (diagonal case proven, off-diagonal structure correct, 4 sorries)
-% - Lemma polynomial_positive_for_largeZ: ✓ Complete (fully proven, no sorry)
-% - Lemma adj_poly_strict_increasing: Substantial progress (main structure complete, 13 sorries)
-% - Theorem linear_representation: Almost complete (injectivity and relation proven, 0 sorries)
-%
-% Helper Lemmas and Definitions:
-% - Definition zmodToFin: ✓ Complete
-% - Lemma single_element_sum_le: ✓ Complete (moved as local helper in det_degree_le_sum_degrees)
-% - Lemma det_degree_le_sum_degrees: ✓ Complete (fully proven, no sorry)
-% - Lemma det_updateRow_single_eq_submatrix_general: Structure defined
-% - Lemma charMatrix_offdiag_minor_sum_degrees: Structure defined
-% - Example (unnamed in Lean): ✓ Complete (explicit computation for f(x)=x² in Z/3Z)
-%
-% Note: Lemma func_matrix_row_sum (row sum property) was moved to Bounds.lean as it's not used in the main proof
-%
-% Total: 20 sorries remaining (down from original 23)
-% Recent progress: Completed polynomial_positive_for_largeZ without using real version
-%
 % This document uses blueprint labels for tracking formalization progress:
 % - \leanok: indicates the corresponding Lean definition/proof is complete
 % - \uses{label}: indicates dependencies between results
@@ -88,10 +66,28 @@ this is bounded by $\sum_{i=0}^{n-1} \sum_{j=0}^{n-1} \deg(M_{ij})$.
 The degree of a sum is at most the maximum degree of its summands.
 \end{proof}
 
+\begin{lemma}[Characteristic Matrix Properties]
+\label{lem:charmatrix_helpers}
+\lean{charmatrix_det_eq_charpoly, charmatrix_det_monic, charmatrix_det_natDegree}
+\leanok
+Let $A$ be an $n \times n$ matrix with integer entries. The characteristic matrix $\chi_A(x) = x \cdot I - A$ has determinant equal to the characteristic polynomial:
+$$\det(\chi_A(x)) = \det(x \cdot I - A)$$
+For $n \geq 2$, this polynomial is monic of degree $n$.
+\end{lemma}
+
+\begin{proof}
+This follows from the standard properties of the characteristic polynomial established in Mathlib.
+The key properties are:
+\begin{itemize}
+\item $\det(\chi_A(x)) = \text{charpoly}(A)$ by definition
+\item $\text{charpoly}(A)$ is monic of degree $n$ for $n \times n$ matrices with $n \geq 2$
+\end{itemize}
+\end{proof}
+
 \begin{lemma}[Polynomial Degree Properties of Adjugate Entries]
 \label{lem:adj_poly}
 \lean{adj_poly}
-\uses{def:func_matrix, lem:det_degree_le_sum_degrees}
+\uses{def:func_matrix, lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
 Let $M = M(x) = \operatorname{adj}(x\cdot I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
 Then $M_{ij} = p_{ij}(x)$ is a polynomial in $x$ for all $i,j\in \mathbb{Z}/n\mathbb{Z}$ such that
 $p_{ii}(x)$ is monic of degree $n-1$ for all $i\in \mathbb{Z}/n\mathbb{Z}$ and
@@ -99,10 +95,18 @@ $p_{ij}(x)$ has degree at most $n-2$ for all $i\neq j\in \mathbb{Z}/n\mathbb{Z}$
 \end{lemma}
 
 \begin{proof}
-\uses{lem:det_degree_le_sum_degrees}
+\uses{lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
 The diagonal entries of $\operatorname{adj}(x\cdot I - A)$ are characteristic polynomials of $(n-1) \times (n-1)$ submatrices, 
-hence monic of degree $n-1$. The off-diagonal entries correspond to minors with two diagonal positions removed, 
-giving degree at most $n-2$ by Lemma \ref{lem:det_degree_le_sum_degrees}.
+hence monic of degree $n-1$ by Lemma \ref{lem:charmatrix_helpers}. 
+
+For the off-diagonal entries, we use a helper lemma that computes the sum of entry degrees for the relevant minors.
+The key insight is that when we compute $\operatorname{adj}(x\cdot I - A)_{ij}$ for $i \neq j$, 
+we remove row $j$ and column $i$ from the characteristic matrix. The resulting matrix has:
+\begin{itemize}
+\item $n-2$ diagonal entries of degree 1 (from $x \cdot I$ since diagonal entries $ii$ and $jj$ were removed)
+\item All other entries of degree 0
+\end{itemize}
+By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant (and hence the adjugate entry) has degree at most $n-2$.
 \end{proof}
 
 \begin{lemma}[Polynomial with Positive Leading Coefficient - Integer Version]
@@ -136,7 +140,7 @@ Let $v = (0,1,2,\ldots,n-1)^T$. Then there is $x_0$ such that for all $x > x_0$:
 \end{lemma}
 
 \begin{proof}
-\uses{lem:adj_poly, lem:polynomial_positive_for_largeZ}
+\uses{lem:adj_poly, lem:polynomial_positive_for_largeZ, lem:charmatrix_helpers}
 The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive_for_largeZ}.
 Let $y = M(x)v$. Then $y_i = \sum_{k=0}^{n-1} M_{ik}(x) \cdot k$.
 
@@ -146,7 +150,7 @@ Therefore, the leading coefficient of $p_i$ is non-negative (dominated by the $M
 
 For the difference $p_j - p_i$ with $j > i$, the leading term comes from $(M_{jj} \cdot j - M_{ii} \cdot i)$. Since both $M_{jj}$ and $M_{ii}$ are monic of degree $n-1$, the leading coefficient of $p_j - p_i$ is $j - i > 0$.
 
-Similarly, for $p_m(x) = \det(x\cdot I - A) - p_i(x)$, since $\det(x\cdot I - A)$ is monic of degree $n$ (characteristic polynomial) and $p_i$ has degree at most $n-1$, the leading coefficient is 1.
+Similarly, for $p_m(x) = \det(x\cdot I - A) - p_i(x)$, since $\det(x\cdot I - A)$ is monic of degree $n$ (by Lemma \ref{lem:charmatrix_helpers}) and $p_i$ has degree at most $n-1$, the leading coefficient is 1.
 
 Applying Lemma \ref{lem:polynomial_positive_for_largeZ} to these polynomials with positive leading coefficients gives the existence of $x_0$ such that all required inequalities hold for $x > x_0$.
 \end{proof}

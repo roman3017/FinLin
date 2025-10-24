@@ -37,6 +37,8 @@ The proof uses:
 This formalization is based on the paper in `lean/finmap.tex`.
 -/
 
+--namespace Cursor.Opus
+
 open Matrix BigOperators
 
 /--
@@ -173,7 +175,23 @@ lemma det_updateRow_single_eq_submatrix_general {n : ℕ} [NeZero n]
     (M : Matrix (Fin n) (Fin n) (Polynomial ℤ)) (k : Fin n) :
     (M.updateRow k (Pi.single k 1)).det =
     (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
-  sorry -- This proof is complex, keep it sorry for now
+  sorry
+
+-- Helper lemmas connecting charmatrix and charpoly
+-- Mathlib defines charpoly M = det(charmatrix M), so these are definitionally equal
+lemma charmatrix_det_eq_charpoly {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ) :
+    (charmatrix M).det = M.charpoly := by
+  rfl
+
+lemma charmatrix_det_monic {n : ℕ} [Nontrivial (Fin n)] (M : Matrix (Fin n) (Fin n) ℤ) :
+    (charmatrix M).det.Monic := by
+  rw [charmatrix_det_eq_charpoly]
+  exact Matrix.charpoly_monic M
+
+lemma charmatrix_det_natDegree {n : ℕ} [Nontrivial (Fin n)] (M : Matrix (Fin n) (Fin n) ℤ) :
+    (charmatrix M).det.natDegree = Fintype.card (Fin n) := by
+  rw [charmatrix_det_eq_charpoly]
+  exact Matrix.charpoly_natDegree_eq_dim M
 
 -- Degree analysis for off-diagonal minors (from ChatGPT3.lean)
 lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n) ℤ) (i j : Fin n) (hij : i ≠ j) :
@@ -307,7 +325,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
     by_cases hn1 : n = 1
     · -- Special case: n = 1
       -- For a 1×1 matrix, we need to show the adjugate diagonal entry is monic of degree 0
-      -- This is technical for 1×1 matrices, so we leave it as sorry for now
       constructor
       · intro _
         constructor
@@ -316,7 +333,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           -- For n=1, adjugate of 1×1 matrix [[p]] is [[1]], which is monic
           rw [adjugate_apply]
           -- For 1×1 matrices, adjugate is identity
-          sorry -- Complex 1×1 matrix adjugate proof
+          sorry
         · -- Degree n-1 = 0
           unfold Polynomial.natDegree
           rw [<-hn1]
@@ -324,7 +341,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           -- For n=1, degree is 0 = 1-1
           rw [adjugate_apply]
           -- For 1×1 matrices, adjugate is identity
-          sorry -- Complex 1×1 matrix adjugate proof
+          sorry
       · intro h_ne
         exact absurd rfl h_ne
 
@@ -398,12 +415,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
             _ = Fintype.card (Fin n) - Fintype.card {x : Fin n // x = j} :=
                 Fintype.card_subtype_compl (fun x => x = j)
             _ = n - Fintype.card {x : Fin n // x = j} := by
-                have : Fintype.card {x : Fin n // x = j} = 1 := by simp
-                rw [this]
-                have : n - 1 + 1 = n := by omega
-                refine Nat.sub_eq_of_eq_add ?_
-                rw [this]
-                sorry
+                sorry -- Fintype.card_fin typeclass mismatch issue
             _ = n - 1 := by simp
         rw [← card_eq]
         exact charpoly_natDegree_eq_dim (A.submatrix (fun (i : {x // x ≠ j}) => i.val)
@@ -422,32 +434,11 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
       -- By charMatrix_offdiag_minor_sum_degrees: the relevant sum = n - 2 for off-diagonal
       -- The sum manipulation to connect these is technical, so we leave it as sorry
       have h_bound : ((charmatrix A).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
-        -- Following Claude3.md:
-        -- charmatrix has n diagonal entries of degree 1, rest degree 0, so total sum = n
-        -- updateRow j (Pi.single i 1): row j becomes all 0s except 1 at column i (all degree 0)
-        -- This removes diagonal entry jj (lose 1 degree)
-        -- Expanding det by row j, only entry (j,i) is non-zero
-        -- This gives submatrix with row j and column i removed
-        -- Column i had diagonal entry ii (lose another 1 degree)
-        -- Total sum of degrees: n - 2
-        -- By det_degree_le_sum_degrees: det degree ≤ n - 2
-
-         -- Direct degree analysis for off-diagonal case using det_degree_le_sum_degrees
-         -- The charmatrix has diagonal entries of degree 1, off-diagonal of degree 0
-         -- After updateRow j (Pi.single i 1), we remove row j and column i
-         -- This removes 2 diagonal entries (jj and ii), so sum ≤ n-2
-         -- We use det_degree_le_sum_degrees with a direct calculation
-         -- The key insight: after updateRow j (Pi.single i 1), we have:
-         -- - Row j becomes all 0s except 1 at column i (all degree 0)
-         -- - This effectively removes row j and column i from the degree calculation
-         -- - Since charmatrix has n diagonal entries of degree 1, removing 2 gives ≤ n-2
-         -- We need to show the sum of degrees in the updated matrix is ≤ n-2
-         -- The updated matrix has at most n-2 diagonal entries with degree 1
-         -- (we removed the diagonal entries at positions (j,j) and (i,i))
-         -- We use det_degree_le_sum_degrees to bound the determinant degree
-         -- The lemma det_degree_le_sum_degrees works but causes timeouts in this context
-         -- We use sorry for the complex degree sum calculation
-         sorry -- Complex degree sum calculation for updated matrix using det_degree_le_sum_degrees
+        -- Strategy: The key insight is that updateRow j (Pi.single i 1) effectively gives us
+        -- a matrix where expanding by row j leaves us with the submatrix excluding row j and column i
+        -- We have the lemma charMatrix_offdiag_minor_sum_degrees that says this sum is n-2
+        -- Combined with det_degree_le_sum_degrees, we get the bound
+        sorry -- Technical: connect det_degree_le_sum_degrees with charMatrix_offdiag_minor_sum_degrees
       exact h_bound
 
 /--
@@ -627,17 +618,23 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     -- y x i = (M x *ᵥ v) i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * k
     -- where M x = (x•I - A).adjugate
     -- We need to show this equals (p_i i).eval x where p_i i = ∑_k (charmatrix A).adjugate_{ik} * C k
-    -- This follows from the fact that evaluation is a ring homomorphism
-    sorry -- Technical: polynomial evaluation commutes with matrix operations and summation
+    -- The key: (charmatrix A) evaluated at x gives (x • 1 - A)
+    -- and adjugate commutes with polynomial ring homomorphism
+    sorry -- Technical: adjugate commutes with polynomial evaluation via RingHom.map_adjugate
 
   have m_is_poly : ∀ x : ℤ, m x = p_m.eval x := by
     intro x
     -- m x = det(x•I - A)
-    -- p_m = det(charmatrix A) = det(X•I - C A)
-    -- charmatrix evaluates to give x•I - A
-    simp only [m, p_m, charmatrix]
-    -- Use RingHom.map_det to commute det with eval
-    sorry -- Need lemma relating det(eval M) = eval (det M) for polynomial matrices
+    -- p_m = det(charmatrix A) = A.charpoly
+    -- Matrix.eval_charpoly says: A.charpoly.eval μ = (scalar μ - A).det
+    unfold m p_m
+    rw [charmatrix_det_eq_charpoly]
+    rw [Matrix.eval_charpoly]
+    -- Now we have: (scalar x - A).det = ?
+    -- We need to show scalar x - A = x • 1 - A
+    congr 1
+    ext i j
+    simp [Matrix.scalar]
 
   -- Now we need to show strict ordering for large x
   -- Strategy: show that p_i(j) - p_i(i) has positive leading coeff for j > i
@@ -776,10 +773,52 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       sorry -- Same Classical.choose opacity issue
 
   -- For m x > 0, we also need a bound from polynomial_positive_for_largeZ on p_m
-  have h_deg : Polynomial.degree p_m = n := sorry
+  -- We need to handle n=1 separately since Fin 1 is not Nontrivial
+  have h_deg : Polynomial.degree p_m = n := by
+    have pos : 0 < n := Fact.out (p := n > 0)
+    by_cases h1 : n = 1
+    · -- n = 1: special case, charmatrix is 1x1, p_m = X - A₀₀ has degree 1
+      rw [h1]
+      unfold p_m
+      -- For 1x1 matrix, charpoly is X - trace, which is degree 1
+      sorry -- Need to show det(charmatrix A) has degree 1 for 1x1 matrix
+    · -- n ≥ 2: use charmatrix_det_natDegree
+      have : Nontrivial (Fin n) := by
+        have h_lt : 1 < n := by omega
+        refine ⟨⟨⟨0, by omega⟩, ⟨1, by omega⟩, ?_⟩⟩
+        intro h
+        simp only [Fin.mk.injEq] at h
+        norm_num at h
+      have h_nat : p_m.natDegree = n := by
+        have := charmatrix_det_natDegree A
+        rw [Fintype.card_fin] at this
+        exact this
+      have h_nonzero : p_m ≠ 0 := by
+        intro h
+        have : (charmatrix A).det.Monic := charmatrix_det_monic A
+        rw [show p_m = (charmatrix A).det from rfl] at h
+        rw [h] at this
+        exact Polynomial.Monic.ne_zero this rfl
+      rw [Polynomial.degree_eq_natDegree h_nonzero, h_nat]
+
   have h_lead : p_m.leadingCoeff > 0 := by
-    rw [show p_m.leadingCoeff = 1 from sorry]
-    norm_num
+    have pos : 0 < n := Fact.out (p := n > 0)
+    by_cases h1 : n = 1
+    · -- n = 1: special case, charmatrix is 1x1, p_m = X - A₀₀ has leading coeff 1
+      unfold p_m
+      sorry -- Need to show det(charmatrix A) has leading coeff 1 for 1x1 matrix
+    · -- n ≥ 2: use charmatrix_det_monic
+      have : Nontrivial (Fin n) := by
+        have h_lt : 1 < n := by omega
+        refine ⟨⟨⟨0, by omega⟩, ⟨1, by omega⟩, ?_⟩⟩
+        intro h
+        simp only [Fin.mk.injEq] at h
+        norm_num at h
+      have : (charmatrix A).det.Monic := charmatrix_det_monic A
+      rw [show p_m.leadingCoeff = (charmatrix A).det.leadingCoeff from rfl]
+      rw [Polynomial.Monic] at this
+      rw [this]
+      norm_num
   obtain ⟨det_pos_bound, h_det_pos_bound_pos, h_det_pos⟩ := polynomial_positive_for_largeZ p_m h_lead
 
   -- Since all bounds are positive, we can simply sum them
@@ -842,8 +881,20 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     intro i j hij
     have h_spec := Classical.choose_spec (ordering_bounds i j hij)
     have h_le : ordering_bound i j hij ≤ final_bound := by
-      sorry -- Single term ≤ sum: ordering_bound i j hij is in the third part of final_bound
-      -- Technical: The dependent if-then-else makes Finset.single_le_sum difficult to apply
+      unfold final_bound
+      -- ordering_bound i j hij appears in the 4th summand when i' = i, j' = j
+      -- All other terms are non-negative, so we have the inequality
+      have h1 : 0 ≤ det_pos_bound := le_of_lt h_det_pos_bound_pos
+      have h2 : 0 ≤ Finset.univ.sum fun i => nonneg_bound i := by
+        apply Finset.sum_nonneg; intro i' _; exact le_of_lt (nonneg_bound_pos i')
+      have h3 : 0 ≤ Finset.univ.sum fun i => det_bound i := by
+        apply Finset.sum_nonneg; intro i' _; exact le_of_lt (det_bound_pos i')
+      have h4 : ordering_bound i j hij ≤
+          Finset.univ.sum fun i' => Finset.univ.sum fun j' =>
+            if hij' : i' < j' then ordering_bound i' j' hij' else 0 := by
+        -- Use that the sum contains the term ordering_bound i j hij
+        sorry -- Technical: need to extract single term from dependent sum
+      linarith
     have : x > ordering_bound i j hij := by omega
     exact h_spec x this
   · -- Bounded by det
@@ -874,7 +925,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
 
 /--
 Linear Representation Definition
-Let f: ℤ/nℤ → ℤ/nℤ be any function. A linear representation of f is a function
+Let f: ℤ/nℤ → ℤ/nℤ be any function. A linear representation of f is an injective function
 j: ℤ/nℤ → ℤ/mℤ such that for all i∈ℤ/nℤ,
 j(f(i)) = a ⋅ j(i) in ℤ/mℤ,
 where m is a positive integer and a is a constant from ℤ/mℤ depending on f.
