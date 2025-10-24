@@ -37,8 +37,6 @@ The proof uses:
 This formalization is based on the paper in `lean/finmap.tex`.
 -/
 
---namespace Cursor.Opus
-
 open Matrix BigOperators
 
 /--
@@ -433,13 +431,13 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
       -- By det_degree_le_sum_degrees: det degree ≤ sum of entry degrees
       -- By charMatrix_offdiag_minor_sum_degrees: the relevant sum = n - 2 for off-diagonal
       -- The sum manipulation to connect these is technical, so we leave it as sorry
-      have h_bound : ((charmatrix A).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
+      have h_bound_deg : ((charmatrix A).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
         -- Strategy: The key insight is that updateRow j (Pi.single i 1) effectively gives us
         -- a matrix where expanding by row j leaves us with the submatrix excluding row j and column i
         -- We have the lemma charMatrix_offdiag_minor_sum_degrees that says this sum is n-2
         -- Combined with det_degree_le_sum_degrees, we get the bound
         sorry -- Technical: connect det_degree_le_sum_degrees with charMatrix_offdiag_minor_sum_degrees
-      exact h_bound
+      exact h_bound_deg
 
 /--
 Integer version: polynomial with positive leading coefficient is eventually positive
@@ -780,8 +778,34 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     · -- n = 1: special case, charmatrix is 1x1, p_m = X - A₀₀ has degree 1
       rw [h1]
       unfold p_m
-      -- For 1x1 matrix, charpoly is X - trace, which is degree 1
-      sorry -- Need to show det(charmatrix A) has degree 1 for 1x1 matrix
+      -- A.charmatrix.det = charmatrix A 0 0
+      have : A.charmatrix.det = A.charmatrix 0 0 := by
+        refine det_eq_elem_of_card_eq_one ?_ 0
+        rw [Fintype.card_fin]
+        exact h1
+      rw [this]
+      -- charmatrix A 0 0 = X - A 0 0
+      simp only [charmatrix_apply]
+      -- Since A is func_matrix f, and n=1, f maps 0 to 0, so A 0 0 = 1
+      have h_A : A 0 0 = 1 := by
+        have : f 0 = 0 := by
+          have : ∀ x : ZMod n, x = 0 := by
+            intro x
+            have : x.val < n := ZMod.val_lt x
+            have : n = 1 := h1
+            rw [this] at this
+            have : x.val < 1 := by (expose_names; exact Nat.lt_of_lt_of_eq this_2 h1)
+            have : x.val = 0 := by omega
+            exact (ZMod.val_eq_zero x).mp this
+          exact this (f 0)
+        have : A 0 0 = if f 0 = 0 then 1 else 0 := by
+          sorry
+        rw [this]
+        simp
+        (expose_names; exact this_2)
+      rw [h_A]
+      -- So det = X - 1, degree 1
+      exact Polynomial.degree_X_sub_C 1
     · -- n ≥ 2: use charmatrix_det_natDegree
       have : Nontrivial (Fin n) := by
         have h_lt : 1 < n := by omega
@@ -805,8 +829,13 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     have pos : 0 < n := Fact.out (p := n > 0)
     by_cases h1 : n = 1
     · -- n = 1: special case, charmatrix is 1x1, p_m = X - A₀₀ has leading coeff 1
-      unfold p_m
-      sorry -- Need to show det(charmatrix A) has leading coeff 1 for 1x1 matrix
+      -- p_m = A.charpoly, and charpoly is always monic
+      have : p_m = A.charpoly := by
+        unfold p_m
+        exact charmatrix_det_eq_charpoly A
+      rw [this]
+      rw [Matrix.charpoly_monic A]
+      norm_num
     · -- n ≥ 2: use charmatrix_det_monic
       have : Nontrivial (Fin n) := by
         have h_lt : 1 < n := by omega
@@ -892,8 +921,9 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       have h4 : ordering_bound i j hij ≤
           Finset.univ.sum fun i' => Finset.univ.sum fun j' =>
             if hij' : i' < j' then ordering_bound i' j' hij' else 0 := by
-        -- Use that the sum contains the term ordering_bound i j hij
-        sorry -- Technical: need to extract single term from dependent sum
+        -- The sum includes the term for i' = i, j' = j, and all other terms are non-negative
+        -- So sum ≥ ordering_bound i j hij
+        sorry
       linarith
     have : x > ordering_bound i j hij := by omega
     exact h_spec x this
