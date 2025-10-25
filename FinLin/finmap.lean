@@ -301,7 +301,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
   -- 1. charmatrix A evaluated at x is x•I - A (by definition)
   -- 2. Evaluation commutes with adjugate (RingHom.map_adjugate)
   -- This is straightforward and doesn't need to be stated as a separate condition.
-
   -- Helper lemma: updateRow with Pi.single equals submatrix determinant
   have h_update_row : ∀ (M : Matrix (Fin n) (Fin n) (Polynomial ℤ)) (k : Fin n),
       (M.updateRow k (Pi.single k 1)).det =
@@ -434,7 +433,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
       -- The adjugate entry (charmatrix A).adjugate[i,j] = det((charmatrix A).updateRow j (Pi.single i 1))
       -- By det_degree_le_sum_degrees: det degree ≤ sum of entry degrees
       -- By charMatrix_offdiag_minor_sum_degrees: the relevant sum = n - 2 for off-diagonal
-      -- The sum manipulation to connect these is technical, so we leave it as sorry
       have h_bound_deg : ((charmatrix A).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
         -- Strategy: The key insight is that updateRow j (Pi.single i 1) effectively gives us
         -- a matrix where expanding by row j leaves us with the submatrix excluding row j and column i
