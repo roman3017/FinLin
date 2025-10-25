@@ -1,19 +1,11 @@
-% Formalization of Linear Representation of Functions
-% Lean 4 formalization in: lean/cursor/Cursor/Opus.lean
-%
-% This document uses blueprint labels for tracking formalization progress:
-% - \leanok: indicates the corresponding Lean definition/proof is complete
-% - \uses{label}: indicates dependencies between results
-
-%functional matrix definition
 \begin{definition}[Adjacency Matrix of a Function]
 \label{def:func_matrix}
 \lean{func_matrix}
 \leanok
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function. The function $f$ is represented by an 
 $n \times n$ adjacency matrix $A=A_f$, where the entry 
-$A_{ij} = \delta_{f(i),j}$ 
-where $\delta_{i,j}$ is the Kronecker delta.
+$a_{ij} = \delta_{f(i),j}$ 
+and $\delta_{i,j}$ is the Kronecker delta.
 With this convention, each row of $A$ contains exactly one non-zero entry.
 \end{definition}
 
@@ -22,13 +14,14 @@ With this convention, each row of $A$ contains exactly one non-zero entry.
 \lean{func_matrix_eq}
 \leanok
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function and $A=A_f$ be the adjacency matrix of the function $f$. 
-Then $(A\cdot y)_i = y_{f(i)}$ for all $i\in \mathbb{Z}/n\mathbb{Z}$ and $y\in \mathbb{Z}^n$.
+Then for all $i\in \{0,1,\ldots,n-1\}$ and $y\in \mathbb{Z}^n$
+$$(A y)_i = y_{f(i)}.$$
 \end{lemma}
 
 \begin{proof}
 \uses{def:func_matrix}
 The proof follows from the Definition \ref{def:func_matrix}.
-$$(A\cdot y)_i = \sum_{j=0}^{n-1} A_{ij} y_j = \sum_{j=0}^{n-1} \delta_{f(i),j} y_j = y_{f(i)}$$
+$$(A y)_i = \sum_{j=0}^{n-1} a_{ij} y_j = \sum_{j=0}^{n-1} \delta_{f(i),j} y_j = y_{f(i)}$$
 \end{proof}
 
 \begin{lemma}
@@ -36,171 +29,142 @@ $$(A\cdot y)_i = \sum_{j=0}^{n-1} A_{ij} y_j = \sum_{j=0}^{n-1} \delta_{f(i),j} 
 \lean{adj_eq}
 \leanok
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function and $A=A_f$ be the adjacency matrix of the function $f$. 
-Let $v\in \mathbb{Z}^n$ and $y = \operatorname{adj}(x\cdot I - A)\cdot v$. 
-Then $y_{f(i)} = x\cdot y_i - m\cdot v_i$ where $m = \det(x\cdot I - A)$.
+Let $v\in \mathbb{Z}^n$, $y = \operatorname{adj}(x I - A) v$ and $m = \det(x I - A)$. Then for all $i\in \{0,1,\ldots,n-1\}$
+$$y_{f(i)} = x y_i - m v_i.$$
 \end{lemma}
 
 \begin{proof}
 \uses{lem:func_matrix_eq}
 For adjugate matrix we have identity 
-$(x\cdot I - A)\cdot \operatorname{adj} (x\cdot I - A) = \det(x\cdot I - A)\cdot I$.
+$(x I - A) \operatorname{adj} (x I - A) = \det(x I - A) I$.
 Therefore,
-$$m\cdot v = (x\cdot I - A)\cdot \operatorname{adj} (x\cdot I - A)\cdot v 
-= (x\cdot I - A)\cdot y = x\cdot y - A\cdot y$$.
+$$m v = \det(x I - A) v = (x I - A) \operatorname{adj} (x I - A) v 
+= (x I - A) y = x y - A y.$$
 The final equality follows from the Lemma \ref{lem:func_matrix_eq}.
 \end{proof}
 
-\begin{lemma}[Determinant Degree Bound]
+\begin{lemma}
 \label{lem:det_degree_le_sum_degrees}
 \lean{det_degree_le_sum_degrees}
 \leanok
-Let $M$ be an $n \times n$ matrix with polynomial entries $M_{ij} \in \mathbb{Z}[x]$.
-Then $\deg(\det(M)) \leq \sum_{i=0}^{n-1} \sum_{j=0}^{n-1} \deg(M_{ij})$.
+Let $M$ be an $n \times n$ matrix with polynomial entries $m_{ij} \in \mathbb{Z}[x]$.
+Then 
+$$\deg(\det(M)) \leq \sum_{i=0}^{n-1} \sum_{j=0}^{n-1} \deg(m_{ij}).$$
 \end{lemma}
 
 \begin{proof}
-The determinant is a sum over permutations $\sigma$ of products $\prod_{i=0}^{n-1} M_{\sigma(i),i}$.
-Each product has degree at most $\sum_{i=0}^{n-1} \deg(M_{\sigma(i),i})$.
+The determinant is a sum over permutations $\sigma$ of products $\prod_{i=0}^{n-1} m_{\sigma(i),i}$.
+Each product has degree at most $\sum_{i=0}^{n-1} \deg(m_{\sigma(i),i})$.
 Since a single element of a sum is at most the whole sum (when all terms are non-negative), 
-this is bounded by $\sum_{i=0}^{n-1} \sum_{j=0}^{n-1} \deg(M_{ij})$.
+this is bounded by $\sum_{i=0}^{n-1} \sum_{j=0}^{n-1} \deg(m_{ij})$.
 The degree of a sum is at most the maximum degree of its summands.
 \end{proof}
 
-\begin{lemma}[Characteristic Matrix Properties]
+\begin{lemma}
 \label{lem:charmatrix_helpers}
 \lean{charmatrix_det_eq_charpoly, charmatrix_det_monic, charmatrix_det_natDegree}
 \leanok
-Let $A$ be an $n \times n$ matrix with integer entries. The characteristic matrix $\chi_A(x) = x \cdot I - A$ has determinant equal to the characteristic polynomial:
+Let $A$ be an $n \times n$ matrix with integer entries. The characteristic matrix $\chi_A(x) = x I - A$ has determinant equal to the characteristic polynomial:
 $$\det(\chi_A(x)) = \det(x \cdot I - A)$$
-For $n \geq 2$, this polynomial is monic of degree $n$.
+For all $n \in N$, this polynomial is monic of degree $n$.
 \end{lemma}
 
 \begin{proof}
-This follows from the standard properties of the characteristic polynomial established in Mathlib.
-The key properties are:
-\begin{itemize}
-\item $\det(\chi_A(x)) = \text{charpoly}(A)$ by definition
-\item $\text{charpoly}(A)$ is monic of degree $n$ for $n \times n$ matrices with $n \geq 2$
-\end{itemize}
+This follows from the standard properties of the characteristic polynomial.
 \end{proof}
 
-\begin{lemma}[Polynomial Degree Properties of Adjugate Entries]
+\begin{lemma}
 \label{lem:adj_poly}
 \lean{adj_poly}
 \uses{def:func_matrix, lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
-Let $M = M(x) = \operatorname{adj}(x\cdot I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
-Then $M_{ij} = p_{ij}(x)$ is a polynomial in $x$ for all $i,j\in \mathbb{Z}/n\mathbb{Z}$ such that
-$p_{ii}(x)$ is monic of degree $n-1$ for all $i\in \mathbb{Z}/n\mathbb{Z}$ and
-$p_{ij}(x)$ has degree at most $n-2$ for all $i\neq j\in \mathbb{Z}/n\mathbb{Z}$.
+Let $M = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x I - A$.
+Then the matrix entries $m_{ij} = p_{ij}(x)$ are polynomials in $x$ for all $i,j\in \{0,1,\ldots,n-1\}$ such that
+\begin{itemize}
+\item $p_{ii}(x)$ is monic of degree $n-1$ for all $i\in \{0,1,\ldots,n-1\}$ and
+\item $p_{ij}(x)$ has degree at most $n-2$ for all $i\neq j\in \{0,1,\ldots,n-1\}$.
+\end{itemize}
 \end{lemma}
 
 \begin{proof}
 \uses{lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
-The diagonal entries of $\operatorname{adj}(x\cdot I - A)$ are characteristic polynomials of $(n-1) \times (n-1)$ submatrices, 
-hence monic of degree $n-1$ by Lemma \ref{lem:charmatrix_helpers}. 
+The diagonal entries of $\operatorname{adj}(x I - A)$ are characteristic polynomials of $(n-1) \times (n-1)$ submatrices, hence monic of degree $n-1$ by Lemma \ref{lem:charmatrix_helpers}. 
 
-For the off-diagonal entries, we use a helper lemma that computes the sum of entry degrees for the relevant minors.
-The key insight is that when we compute $\operatorname{adj}(x\cdot I - A)_{ij}$ for $i \neq j$, 
-we remove row $j$ and column $i$ from the characteristic matrix. The resulting matrix has:
-\begin{itemize}
-\item $n-2$ diagonal entries of degree 1 (from $x \cdot I$ since diagonal entries $ii$ and $jj$ were removed)
-\item All other entries of degree 0
-\end{itemize}
+For the off-diagonal entries, we note that when we compute $\operatorname{adj}(x I - A)_{ij}$ for $i \neq j$, 
+we remove row $j$ and column $i$ from the characteristic matrix. The resulting matrix has 
+all entries of degree 0 besides $n-2$ diagonal entries of degree 1 from $x \cdot I$, since diagonal entries $ii$ and $jj$ were removed.
 By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant (and hence the adjugate entry) has degree at most $n-2$.
 \end{proof}
 
-\begin{lemma}[Polynomial with Positive Leading Coefficient - Integer Version]
-\label{lem:polynomial_positive_for_largeZ}
-\lean{polynomial_positive_for_largeZ}
+\begin{lemma}
+\label{lem:polynomial_positive_for_large}
+\lean{polynomial_positive_for_large}
 \leanok
 If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then $p(n) > 0$ for all sufficiently large integers $n$.
 \end{lemma}
 
 \begin{proof}
-Write $p(n) = an^d + r(n)$ with $a = \text{leadingCoeff}(p) > 0$, $d = \deg(p)$, and $\deg(r) < d$.
-For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \sum_{k < d} |p_k|$ (using integer arithmetic).
-Choose $n_0 = \max(1, B) + 1$. For $n > n_0$:
+Write $p(n) = an^d + r(n)$ where $a > 0$ is the leading coefficient of $p$, $d = \deg(p)$, and $\deg(r) < d$.
+For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \sum_{k < d} |p_k|$.
+Choose $n_0 = \max(1, B)$. For $n > n_0$:
 $$p(n) = an^d + r(n) \geq an^d - Bn^{d-1} = n^{d-1}(an - B) > 0$$
-since $a \geq 1$ (as $a$ is a positive integer) and $n > B$, so $an \geq n > B$.
+since $a \geq 1$ being a positive integer and $n > B$.
 \end{proof}
 
-%let y=Mv where v=(1,2,...,n)^T. Then there is $x_0$ such that for all $x > x_0$ the entries of $y$ are strictly increasing and bounded by $m = \det(x\cdot I - A)$.
-\begin{lemma}[Strict Ordering of Adjugate-Vector Product]
+\begin{lemma}
 \label{lem:adj_poly_strict_increasing}
 \lean{adj_poly_strict_increasing}
-\uses{lem:adj_poly, lem:polynomial_positive_for_largeZ}
-Let $M = M(x) = \operatorname{adj}(x\cdot I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
-Let $v = (0,1,2,\ldots,n-1)^T$. Then there is $x_0$ such that for all $x > x_0$:
-\begin{itemize}
-\item $m(x) = \det(x\cdot I - A) > 0$
-\item The entries $y_i = (M(x)v)_i$ satisfy $y_i \geq 0$ for all $i$
-\item The entries are strictly increasing: $y_i < y_j$ for all $i < j$
-\item The entries are bounded by the determinant: $y_i < m(x)$ for all $i$
-\end{itemize}
+\uses{lem:adj_poly, lem:polynomial_positive_for_large}
+Let $M = (m_{ij}) = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
+Let $v = (0,1,\ldots,n-1)^T$ and $m = m(x) = \det(x I - A)$. Then for sufficiently large integer $x$:
+$$0 \le y_0 < y_1 < \cdots < y_{n-1} < m$$
 \end{lemma}
 
 \begin{proof}
-\uses{lem:adj_poly, lem:polynomial_positive_for_largeZ, lem:charmatrix_helpers}
-The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive_for_largeZ}.
-Let $y = M(x)v$. Then $y_i = \sum_{k=0}^{n-1} M_{ik}(x) \cdot k$.
+\uses{lem:adj_poly, lem:polynomial_positive_for_large, lem:charmatrix_helpers}
+The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive_for_large}.
+Let $y = Mv$. Then $y_i = \sum_{k=0}^{n-1} m_{ik} k$.
 
-For each entry $y_i$, we express it as evaluation of a polynomial $p_i(x) = \sum_{k=0}^{n-1} M_{ik}(x) \cdot k \in \mathbb{Z}[x]$.
-By Lemma \ref{lem:adj_poly}, the diagonal entry $M_{ii}$ is monic of degree $n-1$, while off-diagonal entries $M_{ik}$ (for $k \neq i$) have degree at most $n-2$.
-Therefore, the leading coefficient of $p_i$ is non-negative (dominated by the $M_{ii} \cdot i$ term with $i \geq 0$).
+For each entry $y_i$, we express it as evaluation of a polynomial $p_i(x) = \sum_{k=0}^{n-1} m_{ik}(x) k \in \mathbb{Z}[x]$.
+By Lemma \ref{lem:adj_poly}, the diagonal entry $m_{ii}$ is monic of degree $n-1$, while off-diagonal entries $m_{ik}$ (for $k \neq i$) have degree at most $n-2$.
+Therefore, the leading coefficient of $p_i$ is non-negative (dominated by the $m_{ii} i$ term with $i \geq 0$).
 
-For the difference $p_j - p_i$ with $j > i$, the leading term comes from $(M_{jj} \cdot j - M_{ii} \cdot i)$. Since both $M_{jj}$ and $M_{ii}$ are monic of degree $n-1$, the leading coefficient of $p_j - p_i$ is $j - i > 0$.
+For the difference $p_j - p_i$ with $j > i$, the leading term comes from $(m_{jj} j - m_{ii} i)$. Since both $m_{jj}$ and $m_{ii}$ are monic of degree $n-1$, the leading coefficient of $p_j - p_i$ is $j - i > 0$.
 
-Similarly, for $p_m(x) = \det(x\cdot I - A) - p_i(x)$, since $\det(x\cdot I - A)$ is monic of degree $n$ (by Lemma \ref{lem:charmatrix_helpers}) and $p_i$ has degree at most $n-1$, the leading coefficient is 1.
+Similarly, for $p_m(x) = \det(x I - A) - p_i(x)$, since $\det(x I - A)$ is monic of degree $n$ (by Lemma \ref{lem:charmatrix_helpers}) and $p_i$ has degree at most $n-1$, the leading coefficient is 1.
 
-Applying Lemma \ref{lem:polynomial_positive_for_largeZ} to these polynomials with positive leading coefficients gives the existence of $x_0$ such that all required inequalities hold for $x > x_0$.
+Applying Lemma \ref{lem:polynomial_positive_for_large} to these polynomials with positive leading coefficients gives the existence of $x_0$ such that all required inequalities hold for $x > x_0$.
 \end{proof}
 
 %linear representation definition
-\begin{definition}[Conversion from $\mathbb{Z}/n\mathbb{Z}$ to Index Set]
-\label{def:zmodToFin}
-\lean{zmodToFin}
-\leanok
-For computational purposes, we identify $\mathbb{Z}/n\mathbb{Z}$ with the index set $\{0,1,\ldots,n-1\}$ via the canonical map 
-taking each residue class to its unique representative in $\{0,1,\ldots,n-1\}$.
-\end{definition}
-
 \begin{definition}[Linear Representation]
 \label{def:linear_representation}
 \lean{has_linear_representation}
 \leanok
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function. A linear representation of $f$ is an injective function $j: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/m\mathbb{Z}$ 
-such that for all $i\in \mathbb{Z}/n\mathbb{Z}$,
+such that for all $i\in \{0,1,\ldots,n-1\}$,
 $$j(f(i)) = a \cdot j(i)$$
 in $\mathbb{Z}/m\mathbb{Z}$, where $m$ is a positive integer and $a$ is a constant from $\mathbb{Z}/m\mathbb{Z}$ depending on $f$.
 \end{definition}
 
-\begin{theorem}[Main Theorem: Every Function Has Linear Representation]
+\begin{theorem}[Main Theorem]
 \label{thm:linear_representation}
 \lean{linear_representation}
 \leanok
-\uses{def:func_matrix, def:zmodToFin, lem:adj_eq, lem:adj_poly_strict_increasing, def:linear_representation}
-Any function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a linear representation.
+\uses{def:func_matrix, lem:adj_eq, lem:adj_poly_strict_increasing, def:linear_representation}
+Any finite function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a linear representation.
 \end{theorem}
 
 \begin{proof}
-\uses{def:zmodToFin, lem:adj_eq, lem:adj_poly_strict_increasing}
-Let us define $m = \det(x\cdot I - A)$, $a = x$ and $j(i) = y_i$, where $y = M(x)v$ with $v = (0,1,2,\ldots,n-1)^T$. 
+\uses{lem:adj_eq, lem:adj_poly_strict_increasing}
+Let us define $m = \det(x I - A)$, $a = x$ and $j(i) = y_i$ for $i \in \{0,1,\ldots,n-1\}$, where $y = Mv$ with $v = (0,1,\ldots,n-1)^T$. 
 By Lemma \ref{lem:adj_poly_strict_increasing}, we can choose $x$ large enough such that:
-\begin{itemize}
-\item $m > 0$
-\item The entries $y_i \geq 0$ are non-negative
-\item The entries are strictly increasing: $y_i < y_j$ for $i < j$
-\item The entries are bounded: $y_i < m$ for all $i$
-\end{itemize}
+$$0 \le y_0 < y_1 < \cdots < y_{n-1} < m$$
 
-The non-negativity and boundedness ensure that each $y_i \in [0, m)$ as an integer.
-The strict ordering property ensures that the map $j: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/m\mathbb{Z}$ defined by $j(i) = y_i \bmod m$ is injective.
+Since $m$ is monic of degree $n$, we can choose $x$ such that $x < m(x)$. This shows that $j$ is injective and $a \in \{0,1,\ldots,m-1\}$.
 
-Lemma \ref{lem:adj_eq} shows that $y_{f(i)} = x\cdot y_i - m\cdot v_i$.
-Since $v_i = i$ (using Definition \ref{def:zmodToFin}), we have:
-$$j(f(i)) = y_{f(i)} \bmod m = (x\cdot y_i - m\cdot i) \bmod m = x\cdot y_i \bmod m = x\cdot j(i) \bmod m$$
+Lemma \ref{lem:adj_eq} shows that $y_{f(i)} = x\cdot y_i - m\cdot v_i$ and hence $y_{f(i)} \equiv x\cdot y_i \pmod{m}$.
 
-Therefore, $j$ is a linear representation of $f$ with modulus $m$ and constant $a = x$.
+Therefore, $j$ is a linear representation of $f$ with modulus $m$ and constant $a$.
 \end{proof}
 
 \subsection*{Examples}
@@ -215,10 +179,8 @@ This function maps:
 2 &\mapsto 4 \equiv 1 \pmod{3}
 \end{align*}
 Despite being a non-linear function, Theorem \ref{thm:linear_representation} guarantees that $f$ has a linear representation.
-\end{example}
 
-\begin{remark}[Explicit Computation]
-The adjacency matrix for the quadratic function in Example \ref{ex:quadratic_Z3} is:
+The adjacency matrix is:
 $$A_f = \begin{pmatrix}
 1 & 0 & 0 \\
 0 & 1 & 0 \\
@@ -268,22 +230,19 @@ m &= 4^3 - 2(4^2) + 4 = 64 - 32 + 4 = 36
 The injection $j: \mathbb{Z}/3\mathbb{Z} \to \mathbb{Z}/36\mathbb{Z}$ is defined by $j(i) = y_i$:
 $$j(0) = 0, \quad j(1) = 12, \quad j(2) = 21$$
 
-These values are strictly increasing ($0 < 12 < 21$) and bounded by $m = 36$, so $j$ is injective.
+These values are strictly increasing and bounded by $m = 36$, so $j$ is injective.
 
 We verify the linear representation property using Lemma \ref{lem:adj_eq}. 
 
 The lemma states that $y_{f(i)} = x \cdot y_i - m \cdot v_i$, which we can rewrite as:
-$$j(f(i)) \equiv x \cdot j(i) \pmod{m}$$
-since the $m \cdot v_i$ term vanishes modulo $m$.
+$$j(f(i)) \equiv x \cdot j(i) \pmod{m}.$$
 
 Verification:
 \begin{align*}
-j(f(0)) = j(0) = 0 &\equiv 4 \cdot 0 = 0 \pmod{36} \quad\checkmark \\
-j(f(1)) = j(1) = 12 &\equiv 4 \cdot 12 = 48 \equiv 12 \pmod{36} \quad\checkmark \\
-j(f(2)) = j(1) = 12 &\equiv 4 \cdot 21 = 84 \equiv 12 \pmod{36} \quad\checkmark
+j(f(0)) = j(0) = 0 \equiv 4 \cdot 0 = 4 \cdot j(0) \pmod{36} \quad\checkmark \\
+j(f(1)) = j(1) = 12 \equiv 4 \cdot 12 = 4 \cdot j(1) \pmod{36} \quad\checkmark \\
+j(f(2)) = j(1) = 12 \equiv 48 \equiv 4 \cdot 21 = 4 \cdot j(2) \pmod{36} \quad\checkmark
 \end{align*}
 
-Indeed: $48 = 36 + 12$, so $48 \equiv 12 \pmod{36}$, and $84 = 2 \cdot 36 + 12$, so $84 \equiv 12 \pmod{36}$.
-
 Thus $j(f(i)) \equiv 4 \cdot j(i) \pmod{36}$ for all $i \in \mathbb{Z}/3\mathbb{Z}$, confirming the quadratic function $f(x) = x^2$ has a linear representation with modulus $m = 36$ and multiplier $a = 4$.
-\end{remark}
+\end{example}

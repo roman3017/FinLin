@@ -1,7 +1,7 @@
 import Mathlib
 
 /-!
-# Linear Representation of Functions on Finite Cyclic Groups
+# Linear Representation of Functions
 
 This file contains the Lean4 formalization of the theorem that every function
 f: ℤ/nℤ → ℤ/nℤ has a linear representation.
@@ -34,7 +34,8 @@ The proof uses:
 
 ## References
 
-This formalization is based on the paper in `lean/finmap.tex`.
+This formalization is based on the paper
+https://www.researchgate.net/publication/396456032_A_Linear_Representation_for_Functions_on_Finite_Sets
 -/
 
 open Matrix BigOperators
@@ -167,13 +168,6 @@ theorem det_degree_le_sum_degrees {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ[X]) 
         intro i _
         -- (M (σ i) i).natDegree ≤ ∑ j, (M j i).natDegree
         exact single_element_sum_le (fun j => (M j i).natDegree) (fun j => Nat.zero_le _) (σ i)
-
-open Polynomial in
-lemma det_updateRow_single_eq_submatrix_general {n : ℕ} [NeZero n]
-    (M : Matrix (Fin n) (Fin n) (Polynomial ℤ)) (k : Fin n) :
-    (M.updateRow k (Pi.single k 1)).det =
-    (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
-  sorry
 
 -- Helper lemmas connecting charmatrix and charpoly
 -- Mathlib defines charpoly M = det(charmatrix M), so these are definitionally equal
@@ -314,6 +308,13 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
   -- 2. Evaluation commutes with adjugate (RingHom.map_adjugate)
   -- This is straightforward and doesn't need to be stated as a separate condition.
 
+  -- Helper lemma: updateRow with Pi.single equals submatrix determinant
+  have h_update_row : ∀ (M : Matrix (Fin n) (Fin n) (Polynomial ℤ)) (k : Fin n),
+      (M.updateRow k (Pi.single k 1)).det =
+      (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
+    intro M k
+    sorry -- TODO: Prove via cofactor expansion
+
   by_cases hij : i = j
   · -- Case: i = j (Diagonal case: monic of degree n-1)
     rw [hij]
@@ -333,15 +334,17 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           -- For n=1, adjugate of 1×1 matrix [[p]] is [[1]], which is monic
           rw [adjugate_apply]
           -- For 1×1 matrices, adjugate is identity
-          sorry
+          subst hn1
+          have : j = 0 := Fin.fin_one_eq_zero j
+          subst this
+          simp [Pi.single_eq_same, Matrix.updateRow_self]
         · -- Degree n-1 = 0
-          unfold Polynomial.natDegree
-          rw [<-hn1]
-          simp
-          -- For n=1, degree is 0 = 1-1
           rw [adjugate_apply]
           -- For 1×1 matrices, adjugate is identity
-          sorry
+          subst hn1
+          have : j = 0 := Fin.fin_one_eq_zero j
+          subst this
+          simp [Pi.single_eq_same, Matrix.updateRow_self, Polynomial.natDegree_one]
       · intro h_ne
         exact absurd rfl h_ne
 
@@ -365,8 +368,9 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
         have h_eq : ((charmatrix A).updateRow j (Pi.single j 1)).det =
                     ((charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
                                               (fun (k : {x // x ≠ j}) => k.val)).det := by
-          rw [<-hij]
-          sorry -- Assume helper lemma det_updateRow_single_eq_submatrix_general
+          have := h_update_row (charmatrix A) j
+          rw [<-hij] at this ⊢
+          exact this
         rw [h_eq]
         -- Show the submatrix is the charmatrix of the submatrix
         -- note that submatrix of charmatrix is another charmatrix which we know degree and leading coeff
@@ -392,7 +396,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
                     ((charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
                                               (fun (k : {x // x ≠ j}) => k.val)).det := by
           -- note that submatrix of charmatrix is another charmatrix which we know degree and leading coeff
-          sorry -- Assume helper lemma det_updateRow_single_eq_submatrix_general
+          exact h_update_row (charmatrix A) j
         rw [h_eq]
         have char_submat : (charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
                                                      (fun (k : {x // x ≠ j}) => k.val) =
@@ -455,14 +459,13 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
         -- Step 3: Compute the sum of degrees for M'
         -- For row j (the updated row): all entries have degree 0
         have h_row_j_deg : ∑ j' : Fin n, (M' j' j).natDegree = 0 := by
-          sorry -- Pi.single i 1 has constant entries, all degree 0
+          sorry
 
         -- For other rows k ≠ j: entries come from charmatrix A
         -- charmatrix A has diagonal entries of degree 1, off-diagonal of degree 0
         have h_other_rows : ∀ k : Fin n, k ≠ j →
             ∑ j' : Fin n, (M' j' k).natDegree = 1 := by
-          intro k hk
-          sorry -- charmatrix row has one diagonal entry of degree 1, rest degree 0
+          sorry
 
         -- Step 4: Sum over all columns
         have h_total_sum : ∑ i' : Fin n, ∑ j' : Fin n, (M' j' i').natDegree = n - 1 := by
@@ -507,7 +510,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
 Integer version: polynomial with positive leading coefficient is eventually positive
 If p ∈ ℤ[x] has positive leading coefficient, then p(n) > 0 for all sufficiently large integers n.
 -/
-lemma polynomial_positive_for_largeZ (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) :
+lemma polynomial_positive_for_large (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) :
     ∃ n₀ : ℤ, n₀ > 0 ∧ ∀ n : ℤ, n > n₀ → (poly.eval n) > 0 := by
   open Polynomial Finset in
   -- poly is nonzero because its leading coefficient is positive
@@ -725,10 +728,20 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       -- The diagonal entry (charmatrix A).adjugate i i is monic of degree n-1 (from adj_poly)
       -- Multiplied by C i where i ≥ 0, the leading coeff is ≥ 0
       -- Off-diagonal entries have degree ≤ n-2, so don't affect the leading coeff
-      sorry -- From adj_poly properties
+      have h_deg_p_i_le : (p_i i).natDegree ≤ n - 1 := by
+        sorry
+      have h_lead_p_i_eq : (p_i i).coeff (n - 1) = i.val := by
+        sorry
+      rw [Polynomial.leadingCoeff]
+      by_cases h_deg_eq : (p_i i).natDegree = n - 1
+      · rw [h_deg_eq, h_lead_p_i_eq]
+        apply Int.natCast_nonneg
+      · have h_deg_lt : (p_i i).natDegree < n - 1 := by
+          apply lt_of_le_of_ne h_deg_p_i_le h_deg_eq
+        sorry
 
     by_cases h : (p_i i).leadingCoeff > 0
-    · obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_largeZ (p_i i) h
+    · obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_large (p_i i) h
       use x₀
       intro x hx
       have : (p_i i).eval x > 0 := hx₀ x hx
@@ -738,7 +751,12 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       have : (p_i i).leadingCoeff = 0 := by omega
       use 1
       intro x _
-      sorry -- If polynomial is effectively zero, y x i = 0
+      have h_zero : p_i i = 0 := by
+        -- The leading coefficient of p_i i is i.val. If it's zero, then i.val = 0.
+        -- When i.val = 0, we need to show the entire polynomial is zero.
+        -- This requires a more detailed look at the coefficients.
+        sorry -- TODO: Prove that if i.val = 0, then p_i i = 0
+      sorry
 
   -- For each pair i < j, find x₀ such that y x i < y x j for x > x₀
   have ordering_bounds : ∀ i j : Fin n, i < j →
@@ -761,7 +779,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       -- - Since j > i and both have same degree n-1, the leading coeff is j - i > 0
       sorry -- From adj_poly structure: difference of diagonal monic polynomials scaled by j vs i
 
-    obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_largeZ diff_poly h_lead_pos
+    obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_large diff_poly h_lead_pos
     use x₀
     intro x hx
     have : diff_poly.eval x > 0 := hx₀ x hx
@@ -782,7 +800,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       -- Therefore diff_poly has leading coefficient 1 (from p_m) minus 0 (since p_i i has lower degree)
       sorry -- From adj_poly: det has degree n, p_i has degree ≤ n-1
 
-    obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_largeZ diff_poly h_lead_pos
+    obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_large diff_poly h_lead_pos
     use x₀
     intro x hx
     have : diff_poly.eval x > 0 := hx₀ x hx
@@ -797,7 +815,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
   -- For det bound: need max over all i
 
   -- Extract witnesses using Classical.choose
-  -- All bounds are positive (from polynomial_positive_for_largeZ)
+  -- All bounds are positive (from polynomial_positive_for_large)
   let nonneg_bound := fun i => Classical.choose (nonneg_bounds i)
   let ordering_bound := fun i j (hij : i < j) => Classical.choose (ordering_bounds i j hij)
   let det_bound := fun i => Classical.choose (bound_by_det i)
@@ -807,7 +825,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     intro i
     -- nonneg_bounds i : ∃ x₀ : ℤ, ∀ x : ℤ, x > x₀ → y x i ≥ 0
     -- But we need to show the specific x₀ chosen by Classical.choose is > 0
-    -- The construction in nonneg_bounds uses either polynomial_positive_for_largeZ (giving x₀ > 0)
+    -- The construction in nonneg_bounds uses either polynomial_positive_for_large (giving x₀ > 0)
     -- or "use 1" (giving 1 > 0)
     -- Since we can't directly inspect Classical.choose, we need a different approach
     -- Actually, let's just observe that 1 is always a valid (though perhaps not minimal) bound
@@ -816,25 +834,25 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     · -- This case is impossible: our construction always gives positive bounds
       exfalso
       -- We know from nonneg_bounds construction that the witness is always > 0
-      sorry -- The construction guarantees positivity, but Classical.choose makes this opaque
+      sorry -- Known issue: Classical.choose opacity
 
   have ordering_bound_pos : ∀ i j (hij : i < j), ordering_bound i j hij > 0 := by
     intro i j hij
     by_cases h : ordering_bound i j hij > 0
     · exact h
     · exfalso
-      -- The witness from polynomial_positive_for_largeZ is always > 0
-      sorry -- Same Classical.choose opacity issue
+      -- The witness from polynomial_positive_for_large is always > 0
+      sorry -- Known issue: Classical.choose opacity
 
   have det_bound_pos : ∀ i : Fin n, det_bound i > 0 := by
     intro i
     by_cases h : det_bound i > 0
     · exact h
     · exfalso
-      -- The witness from polynomial_positive_for_largeZ is always > 0
-      sorry -- Same Classical.choose opacity issue
+      -- The witness from polynomial_positive_for_large is always > 0
+      sorry -- Known issue: Classical.choose opacity
 
-  -- For m x > 0, we also need a bound from polynomial_positive_for_largeZ on p_m
+  -- For m x > 0, we also need a bound from polynomial_positive_for_large on p_m
   -- We need to handle n=1 separately since Fin 1 is not Nontrivial
   have h_deg : Polynomial.degree p_m = n := by
     have pos : 0 < n := Fact.out (p := n > 0)
@@ -863,7 +881,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
             exact (ZMod.val_eq_zero x).mp this
           exact this (f 0)
         have : A 0 0 = if f 0 = 0 then 1 else 0 := by
-          sorry
+          simp [A, func_matrix]
         rw [this]
         simp
         (expose_names; exact this_2)
@@ -912,7 +930,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       rw [Polynomial.Monic] at this
       rw [this]
       norm_num
-  obtain ⟨det_pos_bound, h_det_pos_bound_pos, h_det_pos⟩ := polynomial_positive_for_largeZ p_m h_lead
+  obtain ⟨det_pos_bound, h_det_pos_bound_pos, h_det_pos⟩ := polynomial_positive_for_large p_m h_lead
 
   -- Since all bounds are positive, we can simply sum them
   let final_bound : ℤ :=
@@ -1029,10 +1047,6 @@ def has_linear_representation {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) : Pro
     Function.Injective j ∧
     ∀ i : ZMod n, j (f i) = a * j i
 
-/-- Helper: Convert ZMod n to Fin n -/
-def zmodToFin {n : ℕ} [NeZero n] (x : ZMod n) : Fin n :=
-  ⟨ZMod.val x, ZMod.val_lt x⟩
-
 /--
 Main Theorem: Linear Representation of Functions
 Any function f: ℤ/nℤ → ℤ/nℤ has a linear representation.
@@ -1047,6 +1061,9 @@ Proof strategy:
 -/
 theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n → ZMod n) :
     has_linear_representation f := by
+  -- Helper: Convert ZMod n to Fin n
+  let zmodToFin : ZMod n → Fin n := fun x => ⟨ZMod.val x, ZMod.val_lt x⟩
+
   -- Get the bound from adj_poly_strict_increasing
   have h_increasing := adj_poly_strict_increasing f
   let A := func_matrix f
@@ -1321,10 +1338,12 @@ example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fi
     y = adj_M *ᵥ v ∧
     y = ![0, 12, 21] ∧
     -- This gives a linear representation
-    (let j : ZMod 3 → ZMod 36 := fun i => (y (zmodToFin i) : ZMod 36)
+    (let zmodToFin : ZMod 3 → Fin 3 := fun x => ⟨ZMod.val x, ZMod.val_lt x⟩
+     let j : ZMod 3 → ZMod 36 := fun i => (y (zmodToFin i) : ZMod 36)
      let a : ZMod 36 := 4
      Function.Injective j ∧ ∀ i : ZMod 3, j (f i) = a * j i) := by
   let f : ZMod 3 → ZMod 3 := fun x => x^2
+  let zmodToFin : ZMod 3 → Fin 3 := fun x => ⟨ZMod.val x, ZMod.val_lt x⟩
 
   -- Define all the components
   let A := func_matrix f
