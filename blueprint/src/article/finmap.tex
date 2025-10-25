@@ -95,19 +95,29 @@ all entries of degree 0 besides $n-2$ diagonal entries of degree 1 from $x \cdot
 By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant (and hence the adjugate entry) has degree at most $n-2$.
 \end{proof}
 
+\begin{definition}
+\label{def:coeff_bound}
+\lean{coeff_bound}
+\leanok
+For a polynomial $p \in \mathbb{Z}[x]$, define the coefficient bound:
+$$\operatorname{coeff\_bound}(p) = \sum_{i \in \operatorname{support}(p)} |p_i|$$
+where $\operatorname{support}(p)$ is the set of indices with non-zero coefficients.
+\end{definition}
+
 \begin{lemma}
 \label{lem:polynomial_positive}
 \lean{polynomial_positive}
+\uses{def:coeff_bound}
 \leanok
-If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then $p(n) > 0$ for all sufficiently large integers $n$.
+If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then for all integers $n > \operatorname{coeff\_bound}(p)$, we have $n > 0$ and $p(n) > 0$.
 \end{lemma}
 
 \begin{proof}
 Write $p(n) = an^d + r(n)$ where $a > 0$ is the leading coefficient of $p$, $d = \deg(p)$, and $\deg(r) < d$.
-For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \sum_{k < d} |p_k|$.
-Choose $n_0 = \max(1, B)$. For $n > n_0$:
+For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \operatorname{coeff\_bound}(p) = \sum_{k < d} |p_k|$.
+For $n > B$:
 $$p(n) = an^d + r(n) \geq an^d - Bn^{d-1} = n^{d-1}(an - B) > 0$$
-since $a \geq 1$ being a positive integer and $n > B$.
+since $a \geq 1$ being a positive integer and $n > B$. Also $n > B \geq 0$ ensures $n > 0$.
 \end{proof}
 
 \begin{lemma}
