@@ -1,6 +1,8 @@
 import Mathlib
 
-/-!
+set_option maxHeartbeats 0
+
+/-
 # Linear Representation of Functions
 
 This file contains the Lean4 formalization of the theorem that every function
@@ -34,13 +36,12 @@ The proof uses:
 
 ## References
 
-This formalization is based on the paper
-https://www.researchgate.net/publication/396456032_A_Linear_Representation_for_Functions_on_Finite_Sets
+This formalization is based on the paper arXiv:2510.20167
 -/
 
 open Matrix BigOperators
 
-/--
+/-
 Adjacency Matrix of a Function
 Let f: ℤ/nℤ → ℤ/nℤ be any function. The function f is represented by an
 n × n adjacency matrix A=A_f, where the entry A_{ij} = δ_{f(i),j}.
@@ -48,7 +49,7 @@ n × n adjacency matrix A=A_f, where the entry A_{ij} = δ_{f(i),j}.
 def func_matrix {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) : Matrix (Fin n) (Fin n) ℤ :=
   fun i j => if f (i.val : ZMod n) = (j.val : ZMod n) then 1 else 0
 
-/--
+/-
 Matrix-vector product gives the function value
 Let f: ℤ/nℤ → ℤ/nℤ be any function and A=A_f be the adjacency matrix of the function f.
 Then (A⋅y)_i = y_{f(i)} for all i∈ℤ/nℤ and y∈ℤ^n.
@@ -85,7 +86,7 @@ lemma func_matrix_eq {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) (y : Fin n →
     exfalso
     exact hfi (Finset.mem_univ fi)
 
-/--
+/-
 Adjugate identity for the characteristic matrix
 Let f: ℤ/nℤ → ℤ/nℤ be any function and A=A_f be the adjacency matrix of the function f.
 Let v∈ℤ^n and y = adj(xI - A)⋅v.
@@ -136,9 +137,6 @@ lemma adj_eq {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) (x : ℤ) (v : Fin n �
   rw [h_expand, h_Ay] at h_i
   linarith
 
--- Helper lemmas for polynomial degree analysis (from Claude3.lean)
--- Specialized to Fin n for consistency with func_matrix
-
 open Polynomial BigOperators Finset in
 theorem det_degree_le_sum_degrees {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ[X]) :
     (M.det).natDegree ≤ ∑ i : Fin n, ∑ j : Fin n, (M j i).natDegree := by
@@ -169,8 +167,6 @@ theorem det_degree_le_sum_degrees {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ[X]) 
         -- (M (σ i) i).natDegree ≤ ∑ j, (M j i).natDegree
         exact single_element_sum_le (fun j => (M j i).natDegree) (fun j => Nat.zero_le _) (σ i)
 
--- Helper lemmas connecting charmatrix and charpoly
--- Mathlib defines charpoly M = det(charmatrix M), so these are definitionally equal
 lemma charmatrix_det_eq_charpoly {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ) :
     (charmatrix M).det = M.charpoly := by
   rfl
@@ -185,7 +181,6 @@ lemma charmatrix_det_natDegree {n : ℕ} [Nontrivial (Fin n)] (M : Matrix (Fin n
   rw [charmatrix_det_eq_charpoly]
   exact Matrix.charpoly_natDegree_eq_dim M
 
--- Degree analysis for off-diagonal minors (from ChatGPT3.lean)
 lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n) ℤ) (i j : Fin n) (hij : i ≠ j) :
     ∑ i' : {x : Fin n // x ≠ j}, ∑ j' : {x : Fin n // x ≠ i},
       (charmatrix A i'.val j'.val).natDegree = n - 2 := by
@@ -283,8 +278,7 @@ lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n)
           · exact h_ne_count
         rw [h_key, card_subtype]; rfl
 
-
-/--
+/-
 Polynomial entries of the adjugate matrix
 Let M = M(x) = adj(xI - A) be the adjugate of the characteristic matrix xI - A.
 Then M_{ij} = p_{ij}(x) is a polynomial in x for all i,j∈ℤ/nℤ such that
@@ -313,7 +307,11 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
       (M.updateRow k (Pi.single k 1)).det =
       (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
     intro M k
-    sorry -- TODO: Prove via cofactor expansion
+    rw [← Matrix.adjugate_apply]
+    have : Matrix.adjugate M k k = det (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)) := by
+      -- adjugate M k k = det (M.updateRow k (Pi.single k 1)) = cofactor k k M = det submatrix
+      sorry
+    rw [this]
 
   by_cases hij : i = j
   · -- Case: i = j (Diagonal case: monic of degree n-1)
@@ -506,56 +504,109 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
 
       exact h_bound_deg
 
-/--
-Integer version: polynomial with positive leading coefficient is eventually positive
-If p ∈ ℤ[x] has positive leading coefficient, then p(n) > 0 for all sufficiently large integers n.
+def coeff_bound (poly : Polynomial ℤ) : ℤ :=
+  poly.support.sum (fun i => |poly.coeff i|)
+
+/-
+Polynomial with positive leading coefficient is eventually positive
+If p ∈ ℤ[x] has positive leading coefficient, then p(n) > 0 for all n greater than polynomial_bound p.
 -/
-lemma polynomial_positive_for_large (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) :
-    ∃ n₀ : ℤ, n₀ > 0 ∧ ∀ n : ℤ, n > n₀ → (poly.eval n) > 0 := by
+lemma polynomial_positive (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) (n : ℤ) :
+    n > coeff_bound poly → n > 0 ∧ (poly.eval n) > 0 := by
   open Polynomial Finset in
-  -- poly is nonzero because its leading coefficient is positive
   have poly_nonzero : poly ≠ 0 := by
+
     intro H; simp [H] at h
 
   let d := poly.natDegree
   let a := poly.leadingCoeff
 
-  -- Handle the d = 0 case first (constant polynomial)
+  intros hn
+  have hn_pos : n > 0 := by
+    have : coeff_bound poly ≥ 0 := by
+      simp [coeff_bound]
+      have : 0 ≤ 2 := by norm_num
+      have : 0 ≤ ∑ i ∈ poly.support, |poly.coeff i| := by apply sum_nonneg; intro i _; apply abs_nonneg
+      linarith
+    linarith
+
+  constructor
+
+  exact hn_pos
+
   by_cases hd : d = 0
-  · -- If d = 0, then poly is a constant polynomial poly(n) = a for all n, where a > 0
-    use 1
-    constructor
-    · norm_num
-    intros n hn
+  ·
+    norm_num
     have : poly.eval n = a := by
-      -- For natDegree = 0, polynomial is constant: poly = C (coeff 0 poly)
       have hp : poly = C (poly.coeff 0) := eq_C_of_natDegree_eq_zero hd
       rw [hp, eval_C]
-      -- Now show poly.coeff 0 = poly.leadingCoeff
-      -- Since d = natDegree poly = 0, leadingCoeff = coeff (natDegree poly) = coeff 0
       have h_leading : poly.leadingCoeff = poly.coeff poly.natDegree := rfl
       rw [show poly.natDegree = 0 from hd] at h_leading
       rw [← h_leading]
     rw [this]
     exact h
 
-  -- Now d > 0, so we can safely use d - 1
   have d_pos : 0 < d := Nat.pos_of_ne_zero hd
-
-  -- Define B = sum of absolute values of coefficients (excluding leading term)
   let B : ℤ := ∑ k ∈ range d, |poly.coeff k|
-
-  -- Choose n₀ = max(1, B) + 1 to ensure strict inequality
-  let n₀ := max 1 B + 1
-  have hn₀ : n₀ ≥ 2 := by
+  let n₀ := max 1 B
+  have hn₀ : n₀ ≥ 1 := by
     unfold n₀
     omega
   have hn₀_pos : n₀ > 0 := by linarith
 
-  use n₀
-  constructor
-  · exact hn₀_pos
-  intros n hn
+  have hn_gt_n0 : n > n₀ := by
+    have bound_ge_n0 : coeff_bound poly ≥ n₀ := by
+      -- coeff_bound poly includes at least the leading coefficient
+      -- Since a = leadingCoeff > 0 and is an integer, a ≥ 1
+      -- Also B ≥ 0 as a sum of absolute values
+      -- So coeff_bound poly ≥ a ≥ 1
+      -- And n₀ = max 1 B + 1, so if coeff_bound ≥ a + B ≥ 1 + B ≥ max 1 B + 1, we're done
+      have a_ge_one : a ≥ 1 := by omega
+      have coeff_bound_ge_a : coeff_bound poly ≥ a := by
+        simp [coeff_bound, a]
+        have leading_nonzero : poly.coeff poly.natDegree ≠ 0 := by
+          intro h_eq
+          have : poly.leadingCoeff = 0 := by simp [Polynomial.leadingCoeff, h_eq]
+          omega
+        have leading_in_support : poly.natDegree ∈ poly.support := by
+          rw [Polynomial.mem_support_iff]; exact leading_nonzero
+        calc ∑ i ∈ poly.support, |poly.coeff i|
+            ≥ |poly.coeff poly.natDegree| := by
+              apply Finset.single_le_sum (f := fun i => |poly.coeff i|)
+              · intro i _; apply abs_nonneg
+              · exact leading_in_support
+          _ = poly.leadingCoeff := abs_of_pos h
+      refine Int.max_le.mpr ?_
+      constructor
+      · exact Int.le_trans h coeff_bound_ge_a
+      · -- Need to show: B ≤ coeff_bound poly
+        -- B = ∑ k ∈ range d, |poly.coeff k|
+        -- coeff_bound poly = ∑ i ∈ poly.support, |poly.coeff i|
+        -- Key insight: ∑ k ∈ range d, |poly.coeff k| = ∑ k ∈ (range d ∩ support), |poly.coeff k|
+        -- because |poly.coeff k| = 0 when k ∉ support
+        -- And (range d ∩ support) ⊆ support, so the sum over range d ∩ support ≤ sum over support
+        simp [B, coeff_bound]
+        calc ∑ k ∈ range d, |poly.coeff k|
+            = ∑ k ∈ (range d ∩ poly.support), |poly.coeff k| := by
+              symm
+              apply Finset.sum_subset
+              · exact Finset.inter_subset_left
+              · intro k hk_in_range hk_not_in_inter
+                -- k ∈ range d but k ∉ range d ∩ support
+                have k_not_in_support : k ∉ poly.support := by
+                  intro h_in
+                  apply hk_not_in_inter
+                  simp [Finset.mem_inter, hk_in_range, h_in]
+                have : poly.coeff k = 0 := by
+                  simp [Polynomial.mem_support_iff] at k_not_in_support
+                  exact k_not_in_support
+                simp [this]
+          _ ≤ ∑ i ∈ poly.support, |poly.coeff i| := by
+              apply Finset.sum_le_sum_of_subset_of_nonneg
+              · exact Finset.inter_subset_right
+              · intros; apply abs_nonneg
+    linarith
+  have hn₀ : n₀ > 0 := by linarith
 
   have n_ge_two : n ≥ 2 := by omega
   have n_ge_one : n ≥ 1 := by omega
@@ -592,14 +643,12 @@ lemma polynomial_positive_for_large (poly : Polynomial ℤ) (h : poly.leadingCoe
       _ = B * n ^ (d - 1) := by
         simp [B, ← sum_mul]
 
-  -- Split poly(n) = a·n^d + (remainder)
   have poly_split : poly.eval n = a * n ^ d + (∑ k ∈ range d, poly.coeff k * n ^ k) := by
     rw [eval_eq_sum_range]
     rw [Finset.sum_range_succ]
     rw [add_comm]
     congr 1
 
-  -- Conclude poly(n) ≥ a·n^d - B·n^(d-1) = n^(d-1)·(a·n - B) > 0
   have h_ineq : poly.eval n ≥ a * n ^ d - B * n ^ (d - 1) := by
     calc poly.eval n
         = a * n ^ d + (∑ k ∈ range d, poly.coeff k * n ^ k) := poly_split
@@ -639,12 +688,11 @@ lemma polynomial_positive_for_large (poly : Polynomial ℤ) (h : poly.leadingCoe
                _ = n := by ring
           omega
 
-/--
+/-
 Entries of M(x)v are strictly increasing for large x
 Let M = M(x) = adj(xI - A) be the adjugate of the characteristic matrix xI - A.
 Let v = (0,1,2,...,n-1)^T. Then there is x_0 such that for all x > x_0
 the entries of M(x)v are non-negative, strictly increasing, and bounded by m = det(xI - A).
-
 Note:
 - y x i is a polynomial with non-negative leading coefficient (since v_k = k ≥ 0
   and diagonal adjugate entries are monic), so y x i ≥ 0 for large x.
@@ -677,15 +725,49 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
   -- Define the determinant polynomial
   let p_m : Polynomial ℤ := (charmatrix A).det
 
+  -- Key lemma: The coefficient of p_i i at degree n-1 equals i.val
+  -- This is the core technical fact used throughout the proof
+  have h_p_i_coeff : ∀ i : Fin n, (p_i i).coeff (n - 1) = i.val := by
+    intro i
+    -- The proof follows from:
+    -- 1. p_i i = ∑_k adjugate[i,k] * C(k)
+    -- 2. Only the diagonal term adjugate[i,i] * C(i) contributes to coeff at degree n-1
+    -- 3. adjugate[i,i] is monic of degree n-1, so its coeff at n-1 is 1
+    -- 4. C(i) only has nonzero coeff at degree 0, where it equals i
+    -- 5. Therefore: coeff(n-1) = 1 * i = i
+    sorry
+
   -- Key observation: y x i = (p_i i).eval x and m x = p_m.eval x
   have y_is_poly : ∀ i : Fin n, ∀ x : ℤ, y x i = (p_i i).eval x := by
     intro i x
     -- y x i = (M x *ᵥ v) i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * k
     -- where M x = (x•I - A).adjugate
     -- We need to show this equals (p_i i).eval x where p_i i = ∑_k (charmatrix A).adjugate_{ik} * C k
-    -- The key: (charmatrix A) evaluated at x gives (x • 1 - A)
-    -- and adjugate commutes with polynomial ring homomorphism
-    sorry -- Technical: adjugate commutes with polynomial evaluation via RingHom.map_adjugate
+
+    -- Expand definitions
+    show (M x *ᵥ v) i = (p_i i).eval x
+
+    -- LHS: (M x *ᵥ v) i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * k.val
+    calc (M x *ᵥ v) i
+        = ∑ k : Fin n, M x i k * v k := by
+          unfold Matrix.mulVec
+          rfl
+      _ = ∑ k : Fin n, (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate i k * (k.val : ℤ) := rfl
+      _ = ∑ k : Fin n, ((charmatrix A).adjugate i k).eval x * (k.val : ℤ) := by
+          congr 1
+          ext k
+          -- Need: (x•I - A).adjugate_{ik} = (charmatrix A).adjugate_{ik}.eval x
+          -- This follows from the fact that charmatrix A = X•I - C(A)
+          -- and eval (charmatrix A) x = x•I - A
+          sorry -- Technical: adjugate commutes with polynomial evaluation
+      _ = ∑ k : Fin n, ((charmatrix A).adjugate i k).eval x * (Polynomial.C (k.val : ℤ)).eval x := by
+          congr 1; ext k; rw [Polynomial.eval_C]
+      _ = (∑ k : Fin n, (charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).eval x := by
+          rw [Polynomial.eval_finset_sum]
+          congr 1
+          ext k
+          rw [Polynomial.eval_mul]
+      _ = (p_i i).eval x := rfl
 
   have m_is_poly : ∀ x : ℤ, m x = p_m.eval x := by
     intro x
@@ -719,7 +801,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
 
   -- For each i, find x₀ such that y x i ≥ 0 for x > x₀
   have nonneg_bounds : ∀ i : Fin n,
-      ∃ x₀ : ℤ, ∀ x : ℤ, x > x₀ → y x i ≥ 0 := by
+      ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i ≥ 0 := by
     intro i
     -- p_i i has non-negative leading coefficient (monic of degree n-1)
     -- Since v_k = k ≥ 0, and adjugate diagonal entries are monic, p_i i is dominated by positive terms
@@ -729,38 +811,103 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       -- Multiplied by C i where i ≥ 0, the leading coeff is ≥ 0
       -- Off-diagonal entries have degree ≤ n-2, so don't affect the leading coeff
       have h_deg_p_i_le : (p_i i).natDegree ≤ n - 1 := by
-        sorry
-      have h_lead_p_i_eq : (p_i i).coeff (n - 1) = i.val := by
-        sorry
+        -- p_i i = ∑_k adjugate[i,k] * C k
+        -- Each term has degree at most n-1
+        have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
+          intro k _
+          have h_adj := adj_poly f i k
+          by_cases hik : i = k
+          · -- Diagonal: degree = n-1
+            by_cases hzero : (k.val : ℤ) = 0
+            · simp [hzero, mul_zero]
+            · subst hik
+              have h_monic := (h_adj.1 rfl)
+              rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
+              simp [h_monic.2]
+          · -- Off-diagonal: degree ≤ n-2 ≤ n-1
+            by_cases hzero : (k.val : ℤ) = 0
+            · simp [hzero, mul_zero]
+            · have h_off := h_adj.2 hik
+              by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
+              · simp [h_poly_zero]
+              · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
+                simp
+                apply Nat.le_trans h_off
+                have h_n_pos : n > 0 := h.out
+                omega
+        exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
+      have h_lead_p_i_eq : (p_i i).coeff (n - 1) = i.val := h_p_i_coeff i
       rw [Polynomial.leadingCoeff]
       by_cases h_deg_eq : (p_i i).natDegree = n - 1
       · rw [h_deg_eq, h_lead_p_i_eq]
         apply Int.natCast_nonneg
       · have h_deg_lt : (p_i i).natDegree < n - 1 := by
           apply lt_of_le_of_ne h_deg_p_i_le h_deg_eq
-        sorry
+        -- If degree < n-1, then coeff at (n-1) = 0
+        -- But h_lead_p_i_eq says coeff at (n-1) = i.val
+        -- So i.val = 0, meaning i = 0
+        have h_coeff_zero : (p_i i).coeff (n - 1) = 0 := by
+          apply Polynomial.coeff_eq_zero_of_natDegree_lt h_deg_lt
+        rw [h_lead_p_i_eq] at h_coeff_zero
+        -- h_coeff_zero : (i.val : ℤ) = 0
+        -- When i = 0, the polynomial p_i 0 has degree < n-1
+        -- In this case, we need to show leadingCoeff ≥ 0, which is trivial
+        have h_i_eq_zero : i.val = 0 := by
+          have : (i.val : ℤ) = 0 := h_coeff_zero
+          omega
+        have h_i_zero : i = 0 := Fin.ext h_i_eq_zero
+        rw [h_i_zero]
+        -- For i = 0, we need to show (p_i 0).leadingCoeff ≥ 0
+        -- This is always true since leadingCoeff is 0 or the coefficient of the highest degree term
+        by_cases h_zero : (p_i 0) = 0
+        · rw [h_zero]; simp
+        · -- If p_i 0 ≠ 0, then leadingCoeff is the coefficient of the highest degree term
+          -- We don't know its sign in general, but let's proceed
+          sorry
 
     by_cases h : (p_i i).leadingCoeff > 0
-    · obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_large (p_i i) h
-      use x₀
-      intro x hx
-      have : (p_i i).eval x > 0 := hx₀ x hx
-      rw [← y_is_poly i x] at this
-      linarith
-    · -- If leading coeff is 0, then p_i i = 0 (since it's the only possibility with leading coeff ≥ 0 but not > 0)
-      have : (p_i i).leadingCoeff = 0 := by omega
-      use 1
-      intro x _
-      have h_zero : p_i i = 0 := by
-        -- The leading coefficient of p_i i is i.val. If it's zero, then i.val = 0.
-        -- When i.val = 0, we need to show the entire polynomial is zero.
-        -- This requires a more detailed look at the coefficients.
-        sorry -- TODO: Prove that if i.val = 0, then p_i i = 0
-      sorry
+    · let x₀ := coeff_bound (p_i i)
+      -- Prove that x₀ > 0
+      have h_x₀_pos : x₀ > 0 := by
+        have p_i_nonzero : p_i i ≠ 0 := by
+          intro h_zero; rw [h_zero] at h; simp at h
+        simp [x₀, coeff_bound]
+        have supp_nonempty : (p_i i).support.Nonempty := by
+          rw [Finset.nonempty_iff_ne_empty]
+          intro h_empty; apply p_i_nonzero; ext k
+          by_cases hk : (p_i i).coeff k = 0
+          · exact hk
+          · exfalso
+            have : k ∈ (p_i i).support := by rwa [Polynomial.mem_support_iff]
+            rw [h_empty] at this; exact Finset.notMem_empty k this
+        obtain ⟨k, hk⟩ := supp_nonempty
+        have coeff_nonzero : (p_i i).coeff k ≠ 0 := by rwa [Polynomial.mem_support_iff] at hk
+        have sum_ge : |(p_i i).coeff k| ≤ ∑ j ∈ (p_i i).support, |(p_i i).coeff j| :=
+          Finset.single_le_sum (f := fun j => |(p_i i).coeff j|) (fun j _ => abs_nonneg _) hk
+        calc ∑ j ∈ (p_i i).support, |(p_i i).coeff j|
+            ≥ |(p_i i).coeff k| := sum_ge
+          _ > 0 := abs_pos.mpr coeff_nonzero
 
-  -- For each pair i < j, find x₀ such that y x i < y x j for x > x₀
+      use x₀
+      constructor
+      · exact h_x₀_pos
+      · intro x hx
+        have ⟨hx_pos, h_eval⟩ : x > 0 ∧ (p_i i).eval x > 0 := polynomial_positive (p_i i) h x hx
+        rw [← y_is_poly i x] at h_eval
+        linarith
+    · -- If leading coeff = 0, then p_i i = 0 (leadingCoeff = 0 iff polynomial = 0)
+      have h_lead_zero : (p_i i).leadingCoeff = 0 := by omega
+      have h_poly_zero : p_i i = 0 := Polynomial.leadingCoeff_eq_zero.mp h_lead_zero
+      use 1
+      constructor
+      · norm_num
+      · intro x hx
+        rw [y_is_poly, h_poly_zero]
+        simp
+
+ -- For each pair i < j, find x₀ such that y x i < y x j for x > x₀
   have ordering_bounds : ∀ i j : Fin n, i < j →
-      ∃ x₀ : ℤ, ∀ x : ℤ, x > x₀ → y x i < y x j := by
+      ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i < y x j := by
     intro i j hij
     -- The difference p_i(j) - p_i(i) is a polynomial with positive leading coefficient
     let diff_poly := p_i j - p_i i
@@ -777,37 +924,327 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       -- - Term for k=j: adjugate[j,j] * j has leading coeff j (from monic degree n-1)
       -- - Term for k=i: -adjugate[i,i] * i has leading coeff -i (from monic degree n-1)
       -- - Since j > i and both have same degree n-1, the leading coeff is j - i > 0
-      sorry -- From adj_poly structure: difference of diagonal monic polynomials scaled by j vs i
 
-    obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_large diff_poly h_lead_pos
+      -- We know j > i, so j.val ≥ i.val + 1 ≥ 1, meaning j is always positive
+      have h_j_pos : j.val > 0 := by
+        have : i.val < j.val := Fin.val_fin_lt.mp hij
+        omega
+
+      -- Establish degrees of p_i j and p_i i
+      -- p_i j always has degree n-1 since j > 0
+      have h_deg_j : (p_i j).natDegree = n - 1 := by
+        have h_deg_le : (p_i j).natDegree ≤ n - 1 := by
+          have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate j k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
+            intro k _
+            have h_adj := adj_poly f j k
+            by_cases hjk : j = k
+            · by_cases hzero : (k.val : ℤ) = 0
+              · simp [hzero, mul_zero]
+              · subst hjk
+                have h_monic := (h_adj.1 rfl)
+                rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
+                simp [h_monic.2]
+            · by_cases hzero : (k.val : ℤ) = 0
+              · simp [hzero, mul_zero]
+              · have h_off := h_adj.2 hjk
+                by_cases h_poly_zero : (charmatrix A).adjugate j k = 0
+                · simp [h_poly_zero]
+                · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
+                  simp
+                  apply Nat.le_trans h_off
+                  have h_n_pos : n > 0 := h.out
+                  omega
+          exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
+        have h_coeff_ne_zero : (p_i j).coeff (n - 1) ≠ 0 := by
+          rw [h_p_i_coeff j]
+          simp only [Nat.cast_ne_zero]
+          omega
+        have h_deg_ge : (p_i j).natDegree ≥ n - 1 := by
+          apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
+        omega
+
+      -- For p_i i, we need to consider two cases: i = 0 and i > 0
+      by_cases h_i_zero : i = 0
+      · -- Case: i = 0
+        -- When i = 0, (p_i 0).coeff(n-1) = 0, so degree < n-1
+        -- diff_poly = p_i j - p_i 0 has degree n-1 with leading coeff j.val
+        have h_deg_diff : diff_poly.natDegree = n - 1 := by
+          -- p_i 0 has degree ≤ n-2 (all terms have degree ≤ n-2)
+          have h_deg_i_le : (p_i i).natDegree ≤ n - 2 := by
+            rw [h_i_zero]
+            have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate 0 k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 2 := by
+              intro k _
+              have h_adj := adj_poly f 0 k
+              by_cases h0k : (0 : Fin n) = k
+              · -- Diagonal: but k = 0 so C(0) = 0
+                have : k = 0 := h0k.symm
+                subst this
+                simp [mul_zero]
+              · -- Off-diagonal: degree ≤ n-2
+                by_cases hzero : (k.val : ℤ) = 0
+                · simp [hzero, mul_zero]
+                · have h_off := h_adj.2 h0k
+                  by_cases h_poly_zero : (charmatrix A).adjugate 0 k = 0
+                  · simp [h_poly_zero]
+                  · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
+                    simp
+                    exact h_off
+            exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
+          -- diff_poly = p_i j - p_i 0, where deg(p_i j) = n-1 and deg(p_i 0) ≤ n-2
+          calc diff_poly.natDegree
+              = (p_i j - p_i i).natDegree := rfl
+            _ = (p_i j).natDegree := by
+                apply Polynomial.natDegree_sub_eq_left_of_natDegree_lt
+                calc (p_i i).natDegree
+                    ≤ n - 2 := h_deg_i_le
+                  _ < n - 1 := by
+                      have h_n_pos : n > 0 := h.out
+                      omega
+                  _ = (p_i j).natDegree := h_deg_j.symm
+            _ = n - 1 := h_deg_j
+
+        rw [Polynomial.leadingCoeff, h_deg_diff]
+        -- coeff (n-1) of diff_poly = coeff (n-1) of p_i j = j.val
+        calc diff_poly.coeff (n - 1)
+            = (p_i j - p_i i).coeff (n - 1) := rfl
+          _ = (p_i j).coeff (n - 1) - (p_i i).coeff (n - 1) := Polynomial.coeff_sub _ _ _
+          _ = (p_i j).coeff (n - 1) - 0 := by
+              -- (p_i 0).coeff(n-1) = 0 by h_p_i_coeff
+              congr 1
+              rw [h_i_zero]
+              exact h_p_i_coeff 0
+          _ = (p_i j).coeff (n - 1) := by ring
+          _ > 0 := by
+              -- (p_i j).coeff(n-1) = j.val by h_p_i_coeff
+              have : (p_i j).coeff (n - 1) = j.val := h_p_i_coeff j
+              rw [this]
+              simp only [Nat.cast_pos]
+              exact h_j_pos
+
+      · -- Case: i > 0
+        -- Both p_i j and p_i i have degree n-1
+        have h_deg_i : (p_i i).natDegree = n - 1 := by
+          have h_deg_le : (p_i i).natDegree ≤ n - 1 := by
+            have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
+              intro k _
+              have h_adj := adj_poly f i k
+              by_cases hik : i = k
+              · by_cases hzero : (k.val : ℤ) = 0
+                · simp [hzero, mul_zero]
+                · subst hik
+                  have h_monic := (h_adj.1 rfl)
+                  rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
+                  simp [h_monic.2]
+              · by_cases hzero : (k.val : ℤ) = 0
+                · simp [hzero, mul_zero]
+                · have h_off := h_adj.2 hik
+                  by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
+                  · simp [h_poly_zero]
+                  · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
+                    simp
+                    apply Nat.le_trans h_off
+                    have h_n_pos : n > 0 := h.out
+                    omega
+            exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
+          have h_coeff_ne_zero : (p_i i).coeff (n - 1) ≠ 0 := by
+            rw [h_p_i_coeff i]
+            simp only [Nat.cast_ne_zero]
+            intro h_absurd
+            have : i = 0 := Fin.ext h_absurd
+            exact h_i_zero this
+          have h_deg_ge : (p_i i).natDegree ≥ n - 1 := by
+            apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
+          omega
+
+        have h_coeff_diff : diff_poly.coeff (n - 1) = j.val - i.val := by
+          calc diff_poly.coeff (n - 1)
+              = (p_i j - p_i i).coeff (n - 1) := rfl
+            _ = (p_i j).coeff (n - 1) - (p_i i).coeff (n - 1) := Polynomial.coeff_sub _ _ _
+            _ = j.val - i.val := by
+              rw [h_p_i_coeff j, h_p_i_coeff i]
+
+        have h_deg_diff : diff_poly.natDegree = n - 1 := by
+          have h_coeff_ne_zero : diff_poly.coeff (n - 1) ≠ 0 := by
+            rw [h_coeff_diff]
+            have : i.val < j.val := Fin.val_fin_lt.mp hij
+            omega
+          have h_deg_le : diff_poly.natDegree ≤ n - 1 := by
+            calc diff_poly.natDegree
+                ≤ max (p_i j).natDegree (p_i i).natDegree := Polynomial.natDegree_sub_le _ _
+              _ = max (n - 1) (n - 1) := by rw [h_deg_j, h_deg_i]
+              _ = n - 1 := max_self _
+          have h_deg_ge : diff_poly.natDegree ≥ n - 1 := by
+            apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
+          omega
+
+        rw [Polynomial.leadingCoeff, h_deg_diff, h_coeff_diff]
+        have : i.val < j.val := Fin.val_fin_lt.mp hij
+        omega
+
+    let x₀ := coeff_bound diff_poly
+    -- Prove that x₀ > 0
+    have h_x₀_pos : x₀ > 0 := by
+      have diff_poly_nonzero : diff_poly ≠ 0 := by
+        intro h; rw [h] at h_lead_pos; simp at h_lead_pos
+      simp [x₀, coeff_bound]
+      have supp_nonempty : diff_poly.support.Nonempty := by
+        rw [Finset.nonempty_iff_ne_empty]
+        intro h; apply diff_poly_nonzero; ext k
+        by_cases hk : diff_poly.coeff k = 0
+        · exact hk
+        · exfalso
+          have : k ∈ diff_poly.support := by rwa [Polynomial.mem_support_iff]
+          rw [h] at this; exact Finset.notMem_empty k this
+      obtain ⟨k, hk⟩ := supp_nonempty
+      have coeff_nonzero : diff_poly.coeff k ≠ 0 := by rwa [Polynomial.mem_support_iff] at hk
+      have sum_ge : |diff_poly.coeff k| ≤ ∑ j ∈ diff_poly.support, |diff_poly.coeff j| :=
+        Finset.single_le_sum (f := fun j => |diff_poly.coeff j|) (fun j _ => abs_nonneg _) hk
+      calc ∑ j ∈ diff_poly.support, |diff_poly.coeff j|
+          ≥ |diff_poly.coeff k| := sum_ge
+        _ > 0 := abs_pos.mpr coeff_nonzero
+
     use x₀
-    intro x hx
-    have : diff_poly.eval x > 0 := hx₀ x hx
-    rw [Polynomial.eval_sub] at this
-    have : (p_i j).eval x > (p_i i).eval x := by linarith
-    rw [← y_is_poly j x, ← y_is_poly i x] at this
-    exact this
+    constructor
+    · exact h_x₀_pos
+    · intro x hx
+      have ⟨hx_pos, h_eval⟩ : x > 0 ∧ diff_poly.eval x > 0 := polynomial_positive diff_poly h_lead_pos x hx
+      rw [Polynomial.eval_sub] at h_eval
+      have : (p_i j).eval x > (p_i i).eval x := by linarith
+      rw [← y_is_poly j x, ← y_is_poly i x] at this
+      exact this
 
   -- For each i, find x₀ such that y x i < m x for x > x₀
   have bound_by_det : ∀ i : Fin n,
-      ∃ x₀ : ℤ, ∀ x : ℤ, x > x₀ → y x i < m x := by
+      ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i < m x := by
     intro i
     let diff_poly := p_m - p_i i
     have h_lead_pos : diff_poly.leadingCoeff > 0 := by
-      -- p_m = det(charmatrix A) is monic of degree n (from adj_poly or charpoly properties)
+      -- p_m = det(charmatrix A) is monic of degree n (from charpoly properties)
       -- p_i i = ∑_k adjugate[i,k] * C k has degree ≤ n-1
       --   (diagonal adjugate[i,i] is degree n-1, times constant C i, still degree n-1)
       -- Therefore diff_poly has leading coefficient 1 (from p_m) minus 0 (since p_i i has lower degree)
-      sorry -- From adj_poly: det has degree n, p_i has degree ≤ n-1
 
-    obtain ⟨x₀, hx₀_pos, hx₀⟩ := polynomial_positive_for_large diff_poly h_lead_pos
+      -- p_m is the characteristic polynomial determinant, which is monic of degree n
+      have h_deg_pm : p_m.natDegree = n := by
+        by_cases hn : n = 1
+        · -- For n = 1, the characteristic polynomial is X - a₀₀, which has degree 1
+          subst hn
+          -- charmatrix A is a 1×1 matrix [[X - A 0 0]]
+          -- Its determinant is X - A 0 0, which has degree 1
+          have : p_m = Polynomial.X - Polynomial.C (A 0 0) := by
+            simp
+            exact det_fin_one A.charmatrix
+          rw [this]
+          rw [Polynomial.natDegree_sub_eq_left_of_natDegree_lt]
+          · simp [Polynomial.natDegree_X]
+          · simp [Polynomial.natDegree_X]
+        · -- For n ≥ 2, use charmatrix_det_natDegree
+          have h_n_ge_2 : n ≥ 2 := by
+            have h_n_pos : n > 0 := h.out
+            omega
+          have : Nontrivial (Fin n) := by
+            rw [Fin.nontrivial_iff_two_le]
+            exact h_n_ge_2
+          rw [charmatrix_det_natDegree A]
+          simp [Fintype.card_fin]
+      have h_monic_pm : p_m.Monic := by
+        by_cases hn : n = 1
+        · -- For n = 1, X - c is monic
+          subst hn
+          have : p_m = Polynomial.X - Polynomial.C (A 0 0) := by
+            simp
+            exact det_fin_one A.charmatrix
+          rw [this]
+          exact Polynomial.monic_X_sub_C (A 0 0)
+        · -- For n ≥ 2, use charmatrix_det_monic
+          have h_n_ge_2 : n ≥ 2 := by
+            have h_n_pos : n > 0 := h.out
+            omega
+          have : Nontrivial (Fin n) := by
+            rw [Fin.nontrivial_iff_two_le]
+            exact h_n_ge_2
+          exact charmatrix_det_monic A
+
+      -- p_i i has degree ≤ n-1
+      have h_deg_pi : (p_i i).natDegree ≤ n - 1 := by
+        -- p_i i = ∑_k adjugate[i,k] * C k
+        -- Each term has degree at most n-1
+        have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
+          intro k _
+          have h_adj := adj_poly f i k
+          by_cases hik : i = k
+          · -- Diagonal: degree = n-1
+            by_cases hzero : (k.val : ℤ) = 0
+            · simp [hzero, mul_zero]
+            · subst hik
+              have h_monic := (h_adj.1 rfl)
+              rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
+              simp [h_monic.2]
+          · -- Off-diagonal: degree ≤ n-2 ≤ n-1
+            by_cases hzero : (k.val : ℤ) = 0
+            · simp [hzero, mul_zero]
+            · have h_off := h_adj.2 hik
+              by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
+              · simp [h_poly_zero]
+              · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
+                simp
+                apply Nat.le_trans h_off
+                have h_n_pos : n > 0 := h.out
+                omega
+        exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
+
+      -- Since deg(p_m) = n > n-1 ≥ deg(p_i i), the leading coefficient is just that of p_m
+      have h_deg_diff : diff_poly.natDegree = n := by
+        have h_deg_lt : (p_i i).natDegree < p_m.natDegree := by
+          rw [h_deg_pm]
+          have h_n_pos : n > 0 := h.out
+          omega
+        rw [Polynomial.natDegree_sub_eq_left_of_natDegree_lt h_deg_lt, h_deg_pm]
+
+      rw [Polynomial.leadingCoeff, h_deg_diff]
+      rw [Polynomial.coeff_sub]
+      have h_coeff_pm : p_m.coeff n = 1 := by
+        have : p_m.leadingCoeff = 1 := h_monic_pm.leadingCoeff
+        rw [Polynomial.leadingCoeff, h_deg_pm] at this
+        exact this
+      have h_coeff_pi : (p_i i).coeff n = 0 := by
+        apply Polynomial.coeff_eq_zero_of_natDegree_lt
+        have h_n_pos : n > 0 := h.out
+        omega
+      rw [h_coeff_pm, h_coeff_pi]
+      norm_num
+
+    let x₀ := coeff_bound diff_poly
+    -- Prove that x₀ > 0
+    have h_x₀_pos : x₀ > 0 := by
+      have diff_poly_nonzero : diff_poly ≠ 0 := by
+        intro h; rw [h] at h_lead_pos; simp at h_lead_pos
+      simp [x₀, coeff_bound]
+      have supp_nonempty : diff_poly.support.Nonempty := by
+        rw [Finset.nonempty_iff_ne_empty]
+        intro h; apply diff_poly_nonzero; ext k
+        by_cases hk : diff_poly.coeff k = 0
+        · exact hk
+        · exfalso
+          have : k ∈ diff_poly.support := by rwa [Polynomial.mem_support_iff]
+          rw [h] at this; exact Finset.notMem_empty k this
+      obtain ⟨k, hk⟩ := supp_nonempty
+      have coeff_nonzero : diff_poly.coeff k ≠ 0 := by rwa [Polynomial.mem_support_iff] at hk
+      have sum_ge : |diff_poly.coeff k| ≤ ∑ j ∈ diff_poly.support, |diff_poly.coeff j| :=
+        Finset.single_le_sum (f := fun j => |diff_poly.coeff j|) (fun j _ => abs_nonneg _) hk
+      calc ∑ j ∈ diff_poly.support, |diff_poly.coeff j|
+          ≥ |diff_poly.coeff k| := sum_ge
+        _ > 0 := abs_pos.mpr coeff_nonzero
+
     use x₀
-    intro x hx
-    have : diff_poly.eval x > 0 := hx₀ x hx
-    rw [Polynomial.eval_sub] at this
-    have : p_m.eval x > (p_i i).eval x := by linarith
-    rw [← m_is_poly x, ← y_is_poly i x] at this
-    exact this
+    constructor
+    · exact h_x₀_pos
+    · intro x hx
+      have ⟨hx_pos, h_eval⟩ : x > 0 ∧ diff_poly.eval x > 0 := polynomial_positive diff_poly h_lead_pos x hx
+      rw [Polynomial.eval_sub] at h_eval
+      have : p_m.eval x > (p_i i).eval x := by linarith
+      rw [← m_is_poly x, ← y_is_poly i x] at this
+      exact this
 
   -- Combine all bounds: take the maximum of all x₀ values
   -- For non-negativity: need max over all i
@@ -815,7 +1252,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
   -- For det bound: need max over all i
 
   -- Extract witnesses using Classical.choose
-  -- All bounds are positive (from polynomial_positive_for_large)
+  -- All bounds are positive (from polynomial_positive)
   let nonneg_bound := fun i => Classical.choose (nonneg_bounds i)
   let ordering_bound := fun i j (hij : i < j) => Classical.choose (ordering_bounds i j hij)
   let det_bound := fun i => Classical.choose (bound_by_det i)
@@ -823,36 +1260,24 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
   -- All bounds are positive: each existential provides a witness > 0
   have nonneg_bound_pos : ∀ i : Fin n, nonneg_bound i > 0 := by
     intro i
-    -- nonneg_bounds i : ∃ x₀ : ℤ, ∀ x : ℤ, x > x₀ → y x i ≥ 0
-    -- But we need to show the specific x₀ chosen by Classical.choose is > 0
-    -- The construction in nonneg_bounds uses either polynomial_positive_for_large (giving x₀ > 0)
-    -- or "use 1" (giving 1 > 0)
-    -- Since we can't directly inspect Classical.choose, we need a different approach
-    -- Actually, let's just observe that 1 is always a valid (though perhaps not minimal) bound
-    by_cases h : nonneg_bound i > 0
-    · exact h
-    · -- This case is impossible: our construction always gives positive bounds
-      exfalso
-      -- We know from nonneg_bounds construction that the witness is always > 0
-      sorry -- Known issue: Classical.choose opacity
+    -- nonneg_bounds i : ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i ≥ 0
+    -- Classical.choose_spec gives us: nonneg_bound i > 0 ∧ (∀ x > nonneg_bound i, y x i ≥ 0)
+    exact (Classical.choose_spec (nonneg_bounds i)).1
 
   have ordering_bound_pos : ∀ i j (hij : i < j), ordering_bound i j hij > 0 := by
     intro i j hij
-    by_cases h : ordering_bound i j hij > 0
-    · exact h
-    · exfalso
-      -- The witness from polynomial_positive_for_large is always > 0
-      sorry -- Known issue: Classical.choose opacity
+    -- ordering_bounds i j hij : ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i < y x j
+    -- Classical.choose_spec gives us: ordering_bound i j hij > 0 ∧ (∀ x > ordering_bound i j hij, y x i < y x j)
+    exact (Classical.choose_spec (ordering_bounds i j hij)).1
 
   have det_bound_pos : ∀ i : Fin n, det_bound i > 0 := by
     intro i
-    by_cases h : det_bound i > 0
-    · exact h
-    · exfalso
-      -- The witness from polynomial_positive_for_large is always > 0
-      sorry -- Known issue: Classical.choose opacity
+    -- det_bound i = Classical.choose (bound_by_det i)
+    -- bound_by_det i : ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i < m x
+    -- Classical.choose_spec gives us: det_bound i > 0 ∧ (∀ x > det_bound i, y x i < m x)
+    exact (Classical.choose_spec (bound_by_det i)).1
 
-  -- For m x > 0, we also need a bound from polynomial_positive_for_large on p_m
+  -- For m x > 0, we also need a bound from polynomial_positive on p_m
   -- We need to handle n=1 separately since Fin 1 is not Nontrivial
   have h_deg : Polynomial.degree p_m = n := by
     have pos : 0 < n := Fact.out (p := n > 0)
@@ -930,7 +1355,37 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       rw [Polynomial.Monic] at this
       rw [this]
       norm_num
-  obtain ⟨det_pos_bound, h_det_pos_bound_pos, h_det_pos⟩ := polynomial_positive_for_large p_m h_lead
+  let det_pos_bound := coeff_bound p_m
+  have h_det_pos_bound_pos : det_pos_bound > 0 := by
+    -- Since p_m has positive leading coefficient, it's nonzero, so it has at least one nonzero coefficient
+    -- Therefore coeff_bound p_m = sum of |coeff i| > 0
+    have p_m_nonzero : p_m ≠ 0 := by
+      intro h
+      rw [h] at h_lead
+      simp at h_lead
+    simp [det_pos_bound, coeff_bound]
+    -- p_m is nonzero, so its support is nonempty
+    have supp_nonempty : p_m.support.Nonempty := by
+      rw [Finset.nonempty_iff_ne_empty]
+      intro h
+      apply p_m_nonzero
+      ext i
+      by_cases hi : p_m.coeff i = 0
+      · exact hi
+      · exfalso
+        have : i ∈ p_m.support := by
+          rwa [Polynomial.mem_support_iff]
+        rw [h] at this
+        exact Finset.notMem_empty i this
+    -- The sum of absolute values of nonzero coefficients is positive
+    obtain ⟨i, hi⟩ := supp_nonempty
+    have coeff_nonzero : p_m.coeff i ≠ 0 := by
+      rwa [Polynomial.mem_support_iff] at hi
+    have sum_ge : |p_m.coeff i| ≤ ∑ j ∈ p_m.support, |p_m.coeff j| :=
+      Finset.single_le_sum (f := fun j => |p_m.coeff j|) (fun j _ => abs_nonneg _) hi
+    calc ∑ j ∈ p_m.support, |p_m.coeff j|
+        ≥ |p_m.coeff i| := sum_ge
+      _ > 0 := abs_pos.mpr coeff_nonzero
 
   -- Since all bounds are positive, we can simply sum them
   let final_bound : ℤ :=
@@ -958,8 +1413,8 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
           · omega
         linarith
       omega
-    have := h_det_pos x this
-    rwa [← m_is_poly] at this
+    have ⟨_, h_eval⟩ := polynomial_positive p_m h_lead x this
+    rwa [← m_is_poly] at h_eval
 
   constructor
   · -- Non-negativity
@@ -986,7 +1441,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         · omega
       linarith
     have : x > nonneg_bound i := by omega
-    exact h_spec x this
+    exact h_spec.2 x this
   constructor
   · -- Strict ordering
     intro i j hij
@@ -1004,11 +1459,28 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
           Finset.univ.sum fun i' => Finset.univ.sum fun j' =>
             if hij' : i' < j' then ordering_bound i' j' hij' else 0 := by
         -- The sum includes the term for i' = i, j' = j, and all other terms are non-negative
-        -- So sum ≥ ordering_bound i j hij
-        sorry
+        trans (∑ j' ∈ Finset.univ, if hij' : i < j' then ordering_bound i j' hij' else 0)
+        · -- ordering_bound i j hij ≤ ∑_{j'} if i < j' then ordering_bound i j' ...
+          have : ordering_bound i j hij = if hij : i < j then ordering_bound i j hij else 0 := by simp [hij]
+          rw [this]
+          apply Finset.single_le_sum (f := fun j' => if hij' : i < j' then ordering_bound i j' hij' else 0)
+          · intro j' _
+            by_cases h : i < j'
+            · simp [h]; exact le_of_lt (ordering_bound_pos i j' h)
+            · simp [h]
+          · exact Finset.mem_univ j
+        · -- ∑_{j'} ... ≤ ∑_{i'} ∑_{j'} ...
+          apply Finset.single_le_sum (f := fun i' => ∑ j' ∈ Finset.univ, if hij' : i' < j' then ordering_bound i' j' hij' else 0)
+          · intro i' _
+            apply Finset.sum_nonneg
+            intro j' _
+            by_cases h : i' < j'
+            · simp [h]; exact le_of_lt (ordering_bound_pos i' j' h)
+            · simp [h]
+          · exact Finset.mem_univ i
       linarith
     have : x > ordering_bound i j hij := by omega
-    exact h_spec x this
+    exact h_spec.2 x this
   · -- Bounded by det
     intro i
     have h_spec := Classical.choose_spec (bound_by_det i)
@@ -1033,9 +1505,9 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         · omega
       linarith
     have : x > det_bound i := by omega
-    exact h_spec x this
+    exact h_spec.2 x this
 
-/--
+/-
 Linear Representation Definition
 Let f: ℤ/nℤ → ℤ/nℤ be any function. A linear representation of f is an injective function
 j: ℤ/nℤ → ℤ/mℤ such that for all i∈ℤ/nℤ,
@@ -1047,10 +1519,9 @@ def has_linear_representation {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) : Pro
     Function.Injective j ∧
     ∀ i : ZMod n, j (f i) = a * j i
 
-/--
+/-
 Main Theorem: Linear Representation of Functions
 Any function f: ℤ/nℤ → ℤ/nℤ has a linear representation.
-
 Proof strategy:
 1. Use adj_poly_strict_increasing to get x₀ such that for x > x₀,
    the entries y x i are strictly increasing and bounded by m x
@@ -1246,7 +1717,7 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
       _ = (x : ZMod modulus) * (y x i_fin : ZMod modulus) := by rfl
       _ = (x : ZMod modulus) * j i := rfl
 
-/-!
+/-
 ## Explicit Example: Quadratic Function in ℤ/3ℤ
 
 We compute an explicit linear representation for f(x) = x² in ℤ/3ℤ.
@@ -1305,20 +1776,6 @@ Step 9: Verify j(f(i)) = a · j(i) mod m
   - j(f(0)) = j(0) = 0 = 4·0 ✓
   - j(f(1)) = j(1) = 12 = 4·12 mod 36 (48 = 36 + 12) ✓
   - j(f(2)) = j(1) = 12 = 4·21 mod 36 (84 = 2·36 + 12) ✓
--/
-
-/--
-Explicit example showing the linear representation construction for f(x) = x² in ℤ/3ℤ.
-Given f = x², we show that with:
-- A = func_matrix f (the adjacency matrix)
-- x = 4 (chosen parameter)
-- M = 4I - A
-- m = det(M) = 36
-- adj(M) = M.adjugate
-- v = (0,1,2)
-- y = adj(M)·v = (0,12,21)
-
-We get j(i) = y[i] mod 36, a = 4, which satisfies j(f(i)) = a·j(i) mod 36.
 -/
 example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fin 3) ℤ)
     (m : ℤ) (adj_M : Matrix (Fin 3) (Fin 3) ℤ) (v : Fin 3 → ℤ) (y : Fin 3 → ℤ),

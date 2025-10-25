@@ -6,8 +6,7 @@ charmatrix_det_eq_charpoly
 charmatrix_det_monic
 charmatrix_det_natDegree
 adj_poly
-polynomial_positive_for_largeZ
+polynomial_positive
 adj_poly_strict_increasing
-zmodToFin
 has_linear_representation
 linear_representation

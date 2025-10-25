@@ -96,8 +96,8 @@ By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant (and hence the adj
 \end{proof}
 
 \begin{lemma}
-\label{lem:polynomial_positive_for_large}
-\lean{polynomial_positive_for_large}
+\label{lem:polynomial_positive}
+\lean{polynomial_positive}
 \leanok
 If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then $p(n) > 0$ for all sufficiently large integers $n$.
 \end{lemma}
@@ -113,15 +113,15 @@ since $a \geq 1$ being a positive integer and $n > B$.
 \begin{lemma}
 \label{lem:adj_poly_strict_increasing}
 \lean{adj_poly_strict_increasing}
-\uses{lem:adj_poly, lem:polynomial_positive_for_large}
+\uses{lem:adj_poly, lem:polynomial_positive}
 Let $M = (m_{ij}) = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
 Let $v = (0,1,\ldots,n-1)^T$ and $m = m(x) = \det(x I - A)$. Then for sufficiently large integer $x$:
 $$0 \le y_0 < y_1 < \cdots < y_{n-1} < m$$
 \end{lemma}
 
 \begin{proof}
-\uses{lem:adj_poly, lem:polynomial_positive_for_large, lem:charmatrix_helpers}
-The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive_for_large}.
+\uses{lem:adj_poly, lem:polynomial_positive, lem:charmatrix_helpers}
+The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive}.
 Let $y = Mv$. Then $y_i = \sum_{k=0}^{n-1} m_{ik} k$.
 
 For each entry $y_i$, we express it as evaluation of a polynomial $p_i(x) = \sum_{k=0}^{n-1} m_{ik}(x) k \in \mathbb{Z}[x]$.
@@ -132,7 +132,7 @@ For the difference $p_j - p_i$ with $j > i$, the leading term comes from $(m_{jj
 
 Similarly, for $p_m(x) = \det(x I - A) - p_i(x)$, since $\det(x I - A)$ is monic of degree $n$ (by Lemma \ref{lem:charmatrix_helpers}) and $p_i$ has degree at most $n-1$, the leading coefficient is 1.
 
-Applying Lemma \ref{lem:polynomial_positive_for_large} to these polynomials with positive leading coefficients gives the existence of $x_0$ such that all required inequalities hold for $x > x_0$.
+Applying Lemma \ref{lem:polynomial_positive} to these polynomials with positive leading coefficients gives the existence of $x_0$ such that all required inequalities hold for $x > x_0$.
 \end{proof}
 
 %linear representation definition
