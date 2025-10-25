@@ -65,7 +65,7 @@ The degree of a sum is at most the maximum degree of its summands.
 \lean{charmatrix_det_eq_charpoly, charmatrix_det_monic, charmatrix_det_natDegree}
 \leanok
 Let $A$ be an $n \times n$ matrix with integer entries. The characteristic matrix $\chi_A(x) = x I - A$ has determinant equal to the characteristic polynomial:
-$$\det(\chi_A(x)) = \det(x \cdot I - A)$$
+$$\det(\chi_A(x)) = \det(x I - A)$$
 For all $n \in N$, this polynomial is monic of degree $n$.
 \end{lemma}
 
@@ -91,7 +91,7 @@ The diagonal entries of $\operatorname{adj}(x I - A)$ are characteristic polynom
 
 For the off-diagonal entries, we note that when we compute $\operatorname{adj}(x I - A)_{ij}$ for $i \neq j$, 
 we remove row $j$ and column $i$ from the characteristic matrix. The resulting matrix has 
-all entries of degree 0 besides $n-2$ diagonal entries of degree 1 from $x \cdot I$, since diagonal entries $ii$ and $jj$ were removed.
+all entries of degree 0 besides $n-2$ diagonal entries of degree 1 from $x I$, since diagonal entries $ii$ and $jj$ were removed.
 By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant (and hence the adjugate entry) has degree at most $n-2$.
 \end{proof}
 
@@ -198,24 +198,24 @@ $$A_f = \begin{pmatrix}
 \end{pmatrix}$$
 
 The characteristic matrix is:
-$$x \cdot I - A_f = \begin{pmatrix}
+$$x I - A_f = \begin{pmatrix}
 x-1 & 0 & 0 \\
 0 & x-1 & 0 \\
 0 & -1 & x
 \end{pmatrix}$$
 
 The characteristic polynomial is:
-$$m = \det(x \cdot I - A_f) = (x-1)^2 \cdot x = x^3 - 2x^2 + x$$
+$$m = \det(x I - A_f) = (x-1)^2 \cdot x = x^3 - 2x^2 + x$$
 
 The adjugate matrix is:
-$$\operatorname{adj}(x \cdot I - A_f) = \begin{pmatrix}
+$$\operatorname{adj}(x I - A_f) = \begin{pmatrix}
 x(x-1) & 0 & 0 \\
 0 & x(x-1) & 0 \\
 0 & (x-1) & (x-1)^2
 \end{pmatrix}$$
 
 Using vector $v = (0, 1, 2)^T$, we get:
-$$y = \operatorname{adj}(x \cdot I - A_f) \cdot v = \begin{pmatrix}
+$$y = \operatorname{adj}(x I - A_f) \cdot v = \begin{pmatrix}
 x(x-1) \cdot 0 \\
 x(x-1) \cdot 1 \\
 (x-1) \cdot 1 + (x-1)^2 \cdot 2
@@ -244,8 +244,8 @@ These values are strictly increasing and bounded by $m = 36$, so $j$ is injectiv
 
 We verify the linear representation property using Lemma \ref{lem:adj_eq}. 
 
-The lemma states that $y_{f(i)} = x \cdot y_i - m \cdot v_i$, which we can rewrite as:
-$$j(f(i)) \equiv x \cdot j(i) \pmod{m}.$$
+The lemma states that $y_{f(i)} = x y_i - m \cdot v_i$, which we can rewrite as:
+$$j(f(i)) \equiv x j(i) \pmod{m}.$$
 
 Verification:
 \begin{align*}
