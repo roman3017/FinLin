@@ -19,6 +19,7 @@ $$(A y)_i = y_{f(i)}.$$
 \end{lemma}
 
 \begin{proof}
+\leanok
 The proof follows from the Definition \ref{def:func_matrix}.
 $$(A y)_i = \sum_{j=0}^{n-1} a_{ij} y_j = \sum_{j=0}^{n-1} \delta_{f(i),j} y_j = y_{f(i)}$$
 \end{proof}
@@ -33,6 +34,7 @@ $$y_{f(i)} = x y_i - m v_i.$$
 \end{lemma}
 
 \begin{proof}
+\leanok
 For adjugate matrix we have identity 
 $(x I - A) \operatorname{adj} (x I - A) = \det(x I - A) I$.
 Therefore,
@@ -51,6 +53,7 @@ $$\deg(\det(M)) \leq \sum_{i=0}^{n-1} \sum_{j=0}^{n-1} \deg(m_{ij}).$$
 \end{lemma}
 
 \begin{proof}
+\leanok
 The determinant is a sum over permutations $\sigma$ of products $\prod_{i=0}^{n-1} m_{\sigma(i),i}$.
 Each product has degree at most $\sum_{i=0}^{n-1} \deg(m_{\sigma(i),i})$.
 Since a single element of a sum is at most the whole sum (when all terms are non-negative), 
@@ -68,12 +71,14 @@ For all $n \in N$, this polynomial is monic of degree $n$.
 \end{lemma}
 
 \begin{proof}
+\leanok
 This follows from the standard properties of the characteristic polynomial.
 \end{proof}
 
 \begin{lemma}
 \label{lem:adj_poly}
 \lean{adj_poly}
+\leanok
 \uses{def:func_matrix, lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
 Let $M = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x I - A$.
 Then the matrix entries $m_{ij} = p_{ij}(x)$ are polynomials in $x$ for all $i,j\in \{0,1,\ldots,n-1\}$ such that
@@ -110,6 +115,7 @@ If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then for all integers
 \end{lemma}
 
 \begin{proof}
+\leanok
 Write $p(n) = an^d + r(n)$ where $a > 0$ is the leading coefficient of $p$, $d = \deg(p)$, and $\deg(r) < d$.
 For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \operatorname{coeff\_bound}(p) = \sum_{k < d} |p_k|$.
 For $n > B$:
@@ -128,6 +134,7 @@ $$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
 \end{lemma}
 
 \begin{proof}
+\leanok
 The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive}.
 Let $y = Mv$. Then $y_i = \sum_{k=0}^{n-1} m_{ik} (k+1)$.
 
@@ -164,6 +171,7 @@ Any finite function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a
 \end{theorem}
 
 \begin{proof}
+\leanok
 Let us define $m = \det(x I - A)$, $a = x$ and $j(i) = y_i$ for $i \in \{0,1,\ldots,n-1\}$, where $y = Mv$ with $v = (1,2,\ldots,n)^T$. 
 By Lemma \ref{lem:adj_poly_strict_increasing}, we can choose $x$ large enough such that:
 $$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
