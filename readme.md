@@ -6,6 +6,7 @@ The main purpose of this repository is formal verification of results in this re
 
 The current status is here:
 
+ - https://roman3017.github.io/FinLin/blueprint/dep_graph_document.html
  - https://roman3017.github.io/FinLin
 
 ## Build
