@@ -125,22 +125,24 @@ since $a \geq 1$ being a positive integer and $n > B$. Also $n > B \geq 0$ ensur
 \lean{adj_poly_strict_increasing}
 \uses{lem:adj_poly, lem:polynomial_positive}
 Let $M = (m_{ij}) = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
-Let $v = (0,1,\ldots,n-1)^T$ and $m = m(x) = \det(x I - A)$. Then for sufficiently large integer $x$:
-$$0 \le y_0 < y_1 < \cdots < y_{n-1} < m$$
+Let $v = (1,2,\ldots,n)^T$ and $m = m(x) = \det(x I - A)$. Then for sufficiently large integer $x$:
+$$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
 \end{lemma}
 
 \begin{proof}
 \uses{lem:adj_poly, lem:polynomial_positive, lem:charmatrix_helpers}
 The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive}.
-Let $y = Mv$. Then $y_i = \sum_{k=0}^{n-1} m_{ik} k$.
+Let $y = Mv$. Then $y_i = \sum_{k=0}^{n-1} m_{ik} (k+1)$.
 
-For each entry $y_i$, we express it as evaluation of a polynomial $p_i(x) = \sum_{k=0}^{n-1} m_{ik}(x) k \in \mathbb{Z}[x]$.
+For each entry $y_i$, we express it as evaluation of a polynomial $p_i(x) = \sum_{k=0}^{n-1} m_{ik}(x) (k+1) \in \mathbb{Z}[x]$.
 By Lemma \ref{lem:adj_poly}, the diagonal entry $m_{ii}$ is monic of degree $n-1$, while off-diagonal entries $m_{ik}$ (for $k \neq i$) have degree at most $n-2$.
-Therefore, the leading coefficient of $p_i$ is non-negative (dominated by the $m_{ii} i$ term with $i \geq 0$).
+Therefore, the coefficient of $x^{n-1}$ in $p_i$ is $i+1 > 0$ (dominated by the $m_{ii} (i+1)$ term).
 
-For the difference $p_j - p_i$ with $j > i$, the leading term comes from $(m_{jj} j - m_{ii} i)$. Since both $m_{jj}$ and $m_{ii}$ are monic of degree $n-1$, the leading coefficient of $p_j - p_i$ is $j - i > 0$.
+For the difference $p_j - p_i$ with $j > i$, the leading term comes from $(m_{jj} (j+1) - m_{ii} (i+1))$. Since both $m_{jj}$ and $m_{ii}$ are monic of degree $n-1$, the leading coefficient of $p_j - p_i$ is $(j+1) - (i+1) = j - i > 0$.
 
 Similarly, for $p_m(x) = \det(x I - A) - p_i(x)$, since $\det(x I - A)$ is monic of degree $n$ (by Lemma \ref{lem:charmatrix_helpers}) and $p_i$ has degree at most $n-1$, the leading coefficient is 1.
+
+Since $p_0(x)$ has leading coefficient $0+1 = 1 > 0$, we have $y_0 > 0$ for sufficiently large $x$.
 
 Applying Lemma \ref{lem:polynomial_positive} to these polynomials with positive leading coefficients gives the existence of $x_0$ such that all required inequalities hold for $x > x_0$.
 \end{proof}
@@ -166,9 +168,9 @@ Any finite function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a
 
 \begin{proof}
 \uses{lem:adj_eq, lem:adj_poly_strict_increasing}
-Let us define $m = \det(x I - A)$, $a = x$ and $j(i) = y_i$ for $i \in \{0,1,\ldots,n-1\}$, where $y = Mv$ with $v = (0,1,\ldots,n-1)^T$. 
+Let us define $m = \det(x I - A)$, $a = x$ and $j(i) = y_i$ for $i \in \{0,1,\ldots,n-1\}$, where $y = Mv$ with $v = (1,2,\ldots,n)^T$. 
 By Lemma \ref{lem:adj_poly_strict_increasing}, we can choose $x$ large enough such that:
-$$0 \le y_0 < y_1 < \cdots < y_{n-1} < m$$
+$$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
 
 Since $m$ is monic of degree $n$, we can choose $x$ such that $x < m(x)$. This shows that $j$ is injective and $a \in \{0,1,\ldots,m-1\}$.
 
@@ -214,31 +216,31 @@ x(x-1) & 0 & 0 \\
 0 & (x-1) & (x-1)^2
 \end{pmatrix}$$
 
-Using vector $v = (0, 1, 2)^T$, we get:
+Using vector $v = (1, 2, 3)^T$, we get:
 $$y = \operatorname{adj}(x I - A_f) \cdot v = \begin{pmatrix}
-x(x-1) \cdot 0 \\
 x(x-1) \cdot 1 \\
-(x-1) \cdot 1 + (x-1)^2 \cdot 2
+x(x-1) \cdot 2 \\
+(x-1) \cdot 2 + (x-1)^2 \cdot 3
 \end{pmatrix} = \begin{pmatrix}
-0 \\
 x^2 - x \\
-(x-1)(2x-1)
+2x^2 - 2x \\
+(x-1)(3x-1)
 \end{pmatrix} = \begin{pmatrix}
-0 \\
 x^2 - x \\
-2x^2 - 3x + 1
+2x^2 - 2x \\
+3x^2 - 4x + 1
 \end{pmatrix}$$
 
 For $x = 4$, we compute:
 \begin{align*}
-y_0 &= 0 \\
-y_1 &= 4^2 - 4 = 16 - 4 = 12 \\
-y_2 &= 2(4^2) - 3(4) + 1 = 32 - 12 + 1 = 21 \\
+y_0 &= 4^2 - 4 = 16 - 4 = 12 \\
+y_1 &= 2(4^2) - 2(4) = 32 - 8 = 24 \\
+y_2 &= 3(4^2) - 4(4) + 1 = 48 - 16 + 1 = 33 \\
 m &= 4^3 - 2(4^2) + 4 = 64 - 32 + 4 = 36
 \end{align*}
 
 The injection $j: \mathbb{Z}/3\mathbb{Z} \to \mathbb{Z}/36\mathbb{Z}$ is defined by $j(i) = y_i$:
-$$j(0) = 0, \quad j(1) = 12, \quad j(2) = 21$$
+$$j(0) = 12, \quad j(1) = 24, \quad j(2) = 33$$
 
 These values are strictly increasing and bounded by $m = 36$, so $j$ is injective.
 
@@ -249,9 +251,9 @@ $$j(f(i)) \equiv x j(i) \pmod{m}.$$
 
 Verification:
 \begin{align*}
-j(f(0)) = j(0) = 0 \equiv 4 \cdot 0 = 4 \cdot j(0) \pmod{36} \quad\checkmark \\
-j(f(1)) = j(1) = 12 \equiv 4 \cdot 12 = 4 \cdot j(1) \pmod{36} \quad\checkmark \\
-j(f(2)) = j(1) = 12 \equiv 48 \equiv 4 \cdot 21 = 4 \cdot j(2) \pmod{36} \quad\checkmark
+j(f(0)) = j(0) = 12 &\equiv 4 \cdot 12 - 36 \cdot 1 = 48 - 36 = 12 = 4 \cdot j(0) \pmod{36} \quad\checkmark \\
+j(f(1)) = j(1) = 24 &\equiv 4 \cdot 24 - 36 \cdot 2 = 96 - 72 = 24 = 4 \cdot j(1) \pmod{36} \quad\checkmark \\
+j(f(2)) = j(1) = 24 &\equiv 4 \cdot 33 - 36 \cdot 3 = 132 - 108 = 24 = 4 \cdot j(2) \pmod{36} \quad\checkmark
 \end{align*}
 
 Thus $j(f(i)) \equiv 4 \cdot j(i) \pmod{36}$ for all $i \in \mathbb{Z}/3\mathbb{Z}$, confirming the quadratic function $f(x) = x^2$ has a linear representation with modulus $m = 36$ and multiplier $a = 4$.

@@ -701,7 +701,7 @@ Note:
 -/
 lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZMod n → ZMod n) :
     let A := func_matrix f
-    let v : Fin n → ℤ := fun i => i.val
+    let v : Fin n → ℤ := fun i => i.val + 1  -- Use v = (1, 2, ..., n) instead of (0, 1, ..., n-1)
     let M := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate
     let y := fun (x : ℤ) => M x *ᵥ v
     let m := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).det
@@ -714,26 +714,70 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
 
   -- First, observe that y x i and m x come from polynomial evaluations
   -- M x = (x•I - A).adjugate, whose entries are polynomials from charmatrix
-  -- y x i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * k
+  -- y x i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * (k + 1)
 
   -- Define the polynomial for each entry y_i
   let p_i : Fin n → Polynomial ℤ := fun i =>
-    ∑ k : Fin n, (charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)
+    ∑ k : Fin n, (charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)
 
   -- Define the determinant polynomial
   let p_m : Polynomial ℤ := (charmatrix A).det
 
-  -- Key lemma: The coefficient of p_i i at degree n-1 equals i.val
+  -- Key lemma: The coefficient of p_i i at degree n-1 equals i.val + 1
   -- This is the core technical fact used throughout the proof
-  have h_p_i_coeff : ∀ i : Fin n, (p_i i).coeff (n - 1) = i.val := by
+  have h_p_i_coeff : ∀ i : Fin n, (p_i i).coeff (n - 1) = i.val + 1 := by
     intro i
     -- The proof follows from:
-    -- 1. p_i i = ∑_k adjugate[i,k] * C(k)
-    -- 2. Only the diagonal term adjugate[i,i] * C(i) contributes to coeff at degree n-1
+    -- 1. p_i i = ∑_k adjugate[i,k] * C(k.val + 1)
+    -- 2. Only the diagonal term adjugate[i,i] * C(i.val + 1) contributes to coeff at degree n-1
     -- 3. adjugate[i,i] is monic of degree n-1, so its coeff at n-1 is 1
-    -- 4. C(i) only has nonzero coeff at degree 0, where it equals i
-    -- 5. Therefore: coeff(n-1) = 1 * i = i
-    sorry
+    -- 4. C(i.val + 1) only has nonzero coeff at degree 0, where it equals (i.val + 1)
+    -- 5. Therefore: coeff(n-1) = 1 * (i.val + 1) = i.val + 1
+
+    -- Get properties of adjugate entries from adj_poly
+    have h_adj := adj_poly f i i
+    have h_diag : ((charmatrix A).adjugate i i).Monic ∧ ((charmatrix A).adjugate i i).natDegree = n - 1 :=
+      h_adj.1 rfl
+    have h_off : ∀ k : Fin n, k ≠ i → ((charmatrix A).adjugate i k).natDegree ≤ n - 2 :=
+      fun k hk => (adj_poly f i k).2 (Ne.symm hk)
+
+    -- Expand p_i i as a sum and compute its coefficient
+    unfold p_i
+
+    -- Use Finset.sum_eq_single to isolate the diagonal term directly
+    calc (∑ k : Fin n, (charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).coeff (n - 1)
+        = ∑ k : Fin n, ((charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).coeff (n - 1) := by
+          -- Coefficient distributes over sums
+          -- This follows from the fact that coeff is additive
+          clear h_diag h_off h_adj
+          induction' (Finset.univ : Finset (Fin n)) using Finset.induction_on with a s has ih
+          · simp
+          · rw [Finset.sum_insert has, Polynomial.coeff_add, Finset.sum_insert has, ih]
+      _ = ((charmatrix A).adjugate i i * Polynomial.C ((i.val + 1) : ℤ)).coeff (n - 1) := by
+          apply Finset.sum_eq_single i
+          · -- Off-diagonal terms contribute 0 (degree too small)
+            intro k _ hk
+            rw [Polynomial.coeff_mul_C]
+            have h_deg := h_off k hk
+            have : ((charmatrix A).adjugate i k).coeff (n - 1) = 0 := by
+              apply Polynomial.coeff_eq_zero_of_natDegree_lt
+              omega
+            rw [this]
+            ring
+          · -- Membership is automatic: i ∈ univ
+            intro hi
+            exfalso
+            exact hi (Finset.mem_univ i)
+      _ = i.val + 1 := by
+          -- The diagonal term contributes i.val + 1
+          rw [Polynomial.coeff_mul_C]
+          have h_monic_coeff : ((charmatrix A).adjugate i i).coeff (n - 1) = 1 := by
+            have ⟨h_monic, h_deg⟩ := h_diag
+            rw [Polynomial.Monic.def] at h_monic
+            rw [← h_deg]
+            exact h_monic
+          rw [h_monic_coeff]
+          ring
 
   -- Key observation: y x i = (p_i i).eval x and m x = p_m.eval x
   have y_is_poly : ∀ i : Fin n, ∀ x : ℤ, y x i = (p_i i).eval x := by
@@ -745,22 +789,38 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     -- Expand definitions
     show (M x *ᵥ v) i = (p_i i).eval x
 
-    -- LHS: (M x *ᵥ v) i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * k.val
+    -- LHS: (M x *ᵥ v) i = ∑_k (M x)_{ik} * v_k = ∑_k (M x)_{ik} * (k.val + 1)
     calc (M x *ᵥ v) i
         = ∑ k : Fin n, M x i k * v k := by
           unfold Matrix.mulVec
           rfl
-      _ = ∑ k : Fin n, (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate i k * (k.val : ℤ) := rfl
-      _ = ∑ k : Fin n, ((charmatrix A).adjugate i k).eval x * (k.val : ℤ) := by
+      _ = ∑ k : Fin n, (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate i k * ((k.val + 1) : ℤ) := rfl
+      _ = ∑ k : Fin n, ((charmatrix A).adjugate i k).eval x * ((k.val + 1) : ℤ) := by
           congr 1
           ext k
           -- Need: (x•I - A).adjugate_{ik} = (charmatrix A).adjugate_{ik}.eval x
-          -- This follows from the fact that charmatrix A = X•I - C(A)
-          -- and eval (charmatrix A) x = x•I - A
-          sorry -- Technical: adjugate commutes with polynomial evaluation
-      _ = ∑ k : Fin n, ((charmatrix A).adjugate i k).eval x * (Polynomial.C (k.val : ℤ)).eval x := by
+          -- charmatrix A = scalar X - C.mapMatrix A
+          -- When we evaluate at x: eval (scalar X) = scalar x, eval (C a) = a
+          -- So eval(charmatrix A) x = scalar x - A = x•I - A
+          -- Then adjugate commutes with ring homomorphisms
+          have h_eval_charmatrix : (charmatrix A).map (Polynomial.evalRingHom x) = x • (1 : Matrix (Fin n) (Fin n) ℤ) - A := by
+            unfold charmatrix
+            ext i' j'
+            simp only [Matrix.map_apply, Matrix.sub_apply, RingHom.mapMatrix_apply, Matrix.scalar_apply]
+            by_cases hij : i' = j'
+            · simp [hij, Polynomial.eval_X, Matrix.smul_apply]
+            · simp [hij, Matrix.smul_apply]
+          have h_adjugate_map : ((charmatrix A).adjugate).map (Polynomial.evalRingHom x) =
+              ((charmatrix A).map (Polynomial.evalRingHom x)).adjugate := by
+            have := RingHom.map_adjugate (Polynomial.evalRingHom x) (charmatrix A)
+            simp only [RingHom.mapMatrix_apply] at this
+            exact this
+          show (x • 1 - A).adjugate i k * (↑↑k + 1) = ((charmatrix A).adjugate i k).eval x * (↑↑k + 1)
+          rw [← h_eval_charmatrix, ← h_adjugate_map]
+          rfl
+      _ = ∑ k : Fin n, ((charmatrix A).adjugate i k).eval x * (Polynomial.C ((k.val + 1) : ℤ)).eval x := by
           congr 1; ext k; rw [Polynomial.eval_C]
-      _ = (∑ k : Fin n, (charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).eval x := by
+      _ = (∑ k : Fin n, (charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).eval x := by
           rw [Polynomial.eval_finset_sum]
           congr 1
           ext k
@@ -802,66 +862,13 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       ∃ x₀ : ℤ, x₀ > 0 ∧ ∀ x : ℤ, x > x₀ → y x i ≥ 0 := by
     intro i
     -- p_i i has non-negative leading coefficient (monic of degree n-1)
-    -- Since v_k = k ≥ 0, and adjugate diagonal entries are monic, p_i i is dominated by positive terms
-    have h_lead_nonneg : (p_i i).leadingCoeff ≥ 0 := by
-      -- p_i i = ∑_k (charmatrix A).adjugate i k * C k
-      -- The diagonal entry (charmatrix A).adjugate i i is monic of degree n-1 (from adj_poly)
-      -- Multiplied by C i where i ≥ 0, the leading coeff is ≥ 0
-      -- Off-diagonal entries have degree ≤ n-2, so don't affect the leading coeff
-      have h_deg_p_i_le : (p_i i).natDegree ≤ n - 1 := by
-        -- p_i i = ∑_k adjugate[i,k] * C k
-        -- Each term has degree at most n-1
-        have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
-          intro k _
-          have h_adj := adj_poly f i k
-          by_cases hik : i = k
-          · -- Diagonal: degree = n-1
-            by_cases hzero : (k.val : ℤ) = 0
-            · simp [hzero, mul_zero]
-            · subst hik
-              have h_monic := (h_adj.1 rfl)
-              rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
-              simp [h_monic.2]
-          · -- Off-diagonal: degree ≤ n-2 ≤ n-1
-            by_cases hzero : (k.val : ℤ) = 0
-            · simp [hzero, mul_zero]
-            · have h_off := h_adj.2 hik
-              by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
-              · simp [h_poly_zero]
-              · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
-                simp
-                apply Nat.le_trans h_off
-                have h_n_pos : n > 0 := h.out
-                omega
-        exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
-      have h_lead_p_i_eq : (p_i i).coeff (n - 1) = i.val := h_p_i_coeff i
-      rw [Polynomial.leadingCoeff]
-      by_cases h_deg_eq : (p_i i).natDegree = n - 1
-      · rw [h_deg_eq, h_lead_p_i_eq]
-        apply Int.natCast_nonneg
-      · have h_deg_lt : (p_i i).natDegree < n - 1 := by
-          apply lt_of_le_of_ne h_deg_p_i_le h_deg_eq
-        -- If degree < n-1, then coeff at (n-1) = 0
-        -- But h_lead_p_i_eq says coeff at (n-1) = i.val
-        -- So i.val = 0, meaning i = 0
-        have h_coeff_zero : (p_i i).coeff (n - 1) = 0 := by
-          apply Polynomial.coeff_eq_zero_of_natDegree_lt h_deg_lt
-        rw [h_lead_p_i_eq] at h_coeff_zero
-        -- h_coeff_zero : (i.val : ℤ) = 0
-        -- When i = 0, the polynomial p_i 0 has degree < n-1
-        -- In this case, we need to show leadingCoeff ≥ 0, which is trivial
-        have h_i_eq_zero : i.val = 0 := by
-          have : (i.val : ℤ) = 0 := h_coeff_zero
-          omega
-        have h_i_zero : i = 0 := Fin.ext h_i_eq_zero
-        rw [h_i_zero]
-        -- For i = 0, we need to show (p_i 0).leadingCoeff ≥ 0
-        -- This is always true since leadingCoeff is 0 or the coefficient of the highest degree term
-        by_cases h_zero : (p_i 0) = 0
-        · rw [h_zero]; simp
-        · -- If p_i 0 ≠ 0, then leadingCoeff is the coefficient of the highest degree term
-          -- We don't know its sign in general, but let's proceed
-          sorry
+    -- Since v_k = k + 1 ≥ 1, all components are positive
+    have h_coeff_n_minus_1_nonneg : (p_i i).coeff (n - 1) ≥ 0 := by
+      -- The coefficient at degree n-1 is i.val + 1 (from h_p_i_coeff)
+      -- and i.val + 1 ≥ 1 > 0
+      have : (p_i i).coeff (n - 1) = i.val + 1 := h_p_i_coeff i
+      rw [this]
+      omega
 
     by_cases h : (p_i i).leadingCoeff > 0
     · let x₀ := coeff_bound (p_i i)
@@ -893,15 +900,62 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         have ⟨hx_pos, h_eval⟩ : x > 0 ∧ (p_i i).eval x > 0 := polynomial_positive (p_i i) h x hx
         rw [← y_is_poly i x] at h_eval
         linarith
-    · -- If leading coeff = 0, then p_i i = 0 (leadingCoeff = 0 iff polynomial = 0)
-      have h_lead_zero : (p_i i).leadingCoeff = 0 := by omega
-      have h_poly_zero : p_i i = 0 := Polynomial.leadingCoeff_eq_zero.mp h_lead_zero
-      use 1
-      constructor
-      · norm_num
-      · intro x hx
-        rw [y_is_poly, h_poly_zero]
-        simp
+    · -- If leadingCoeff ≤ 0
+      -- We know coeff(n-1) = i.val ≥ 0
+      -- If natDegree = n-1, then leadingCoeff = coeff(n-1) = i.val ≥ 0
+      -- Combined with leadingCoeff ≤ 0, we get leadingCoeff = 0, so i.val = 0
+      -- If natDegree < n-1, then i = 0 (since coeff(n-1) = i.val must be 0)
+      -- In either case, coeff(n-1) ≥ 0 means leadingCoeff could be negative for natDegree < n-1
+      -- But if leadingCoeff ≤ 0 and the polynomial is not eventually positive,
+      -- we need to handle this case differently
+
+      -- For ALL i (including i=0), we now have coeff(n-1) = i.val + 1 ≥ 1 > 0
+      -- So the polynomial must have degree n-1 and leadingCoeff = coeff(n-1) > 0
+      -- This contradicts the assumption that leadingCoeff ≤ 0
+
+      have h_coeff_pos : (p_i i).coeff (n - 1) > 0 := by
+        have : (p_i i).coeff (n - 1) = i.val + 1 := h_p_i_coeff i
+        rw [this]
+        omega
+
+      -- Since coeff(n-1) > 0, the polynomial must have degree n-1
+      exfalso
+      have h_deg : (p_i i).natDegree = n - 1 := by
+        by_contra h_ne
+        have h_lt : (p_i i).natDegree < n - 1 := by
+          have h_le : (p_i i).natDegree ≤ n - 1 := by
+            -- p_i i = ∑_k adjugate[i,k] * C (k+1), each term has degree ≤ n-1
+            apply Polynomial.natDegree_sum_le_of_forall_le
+            intro k _
+            have h_adj := adj_poly f i k
+            by_cases hik : i = k
+            · -- Diagonal: degree = n-1
+              by_cases hzero : ((k.val + 1) : ℤ) = 0
+              · omega -- k.val + 1 ≥ 1, so never 0
+              · subst hik
+                have h_monic := (h_adj.1 rfl)
+                have h_ne_zero : (charmatrix A).adjugate i i ≠ 0 := h_monic.1.ne_zero
+                have h_C_ne_zero : Polynomial.C ((i.val + 1) : ℤ) ≠ 0 := Polynomial.C_ne_zero.mpr hzero
+                rw [Polynomial.natDegree_mul h_ne_zero h_C_ne_zero, Polynomial.natDegree_C, add_zero, h_monic.2]
+            · -- Off-diagonal: degree ≤ n-2 ≤ n-1
+              by_cases hzero : ((k.val + 1) : ℤ) = 0
+              · omega -- k.val + 1 ≥ 1, so never 0
+              · have h_off := h_adj.2 hik
+                by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
+                · simp [h_poly_zero]
+                · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero), Polynomial.natDegree_C, add_zero]
+                  calc ((charmatrix A).adjugate i k).natDegree
+                      ≤ n - 2 := h_off
+                    _ ≤ n - 1 := by omega
+          omega
+        have : (p_i i).coeff (n - 1) = 0 :=
+          Polynomial.coeff_eq_zero_of_natDegree_lt h_lt
+        rw [this] at h_coeff_pos
+        omega
+      have : (p_i i).leadingCoeff = (p_i i).coeff (n - 1) := by
+        rw [Polynomial.leadingCoeff, h_deg]
+      rw [this] at h
+      omega
 
  -- For each pair i < j, find x₀ such that y x i < y x j for x > x₀
   have ordering_bounds : ∀ i j : Fin n, i < j →
@@ -929,155 +983,102 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         omega
 
       -- Establish degrees of p_i j and p_i i
-      -- p_i j always has degree n-1 since j > 0
+      -- p_i j always has degree n-1 (all k now have v_k = k+1 ≥ 1)
       have h_deg_j : (p_i j).natDegree = n - 1 := by
         have h_deg_le : (p_i j).natDegree ≤ n - 1 := by
-          have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate j k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
+          have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate j k * Polynomial.C ((k.val + 1) : ℤ)).natDegree ≤ n - 1 := by
             intro k _
             have h_adj := adj_poly f j k
             by_cases hjk : j = k
-            · by_cases hzero : (k.val : ℤ) = 0
-              · simp [hzero, mul_zero]
-              · subst hjk
-                have h_monic := (h_adj.1 rfl)
-                rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
-                simp [h_monic.2]
-            · by_cases hzero : (k.val : ℤ) = 0
-              · simp [hzero, mul_zero]
-              · have h_off := h_adj.2 hjk
-                by_cases h_poly_zero : (charmatrix A).adjugate j k = 0
-                · simp [h_poly_zero]
-                · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
-                  simp
-                  apply Nat.le_trans h_off
-                  have h_n_pos : n > 0 := h.out
+            · -- Diagonal case
+              subst hjk
+              have h_monic := (h_adj.1 rfl)
+              have h_C_ne_zero : Polynomial.C ((j.val + 1) : ℤ) ≠ 0 := by
+                apply Polynomial.C_ne_zero.mpr
+                omega
+              rw [Polynomial.natDegree_mul h_monic.1.ne_zero h_C_ne_zero, Polynomial.natDegree_C]
+              simp [h_monic.2]
+            · -- Off-diagonal case
+              have h_off := h_adj.2 hjk
+              by_cases h_poly_zero : (charmatrix A).adjugate j k = 0
+              · simp [h_poly_zero]
+              · have h_C_ne_zero : Polynomial.C ((k.val + 1) : ℤ) ≠ 0 := by
+                  apply Polynomial.C_ne_zero.mpr
                   omega
+                rw [Polynomial.natDegree_mul h_poly_zero h_C_ne_zero, Polynomial.natDegree_C]
+                simp only [add_zero]
+                calc ((charmatrix A).adjugate j k).natDegree
+                    ≤ n - 2 := h_off
+                  _ ≤ n - 1 := by omega
           exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
         have h_coeff_ne_zero : (p_i j).coeff (n - 1) ≠ 0 := by
           rw [h_p_i_coeff j]
-          simp only [Nat.cast_ne_zero]
           omega
         have h_deg_ge : (p_i j).natDegree ≥ n - 1 := by
           apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
         omega
 
-      -- For p_i i, we need to consider two cases: i = 0 and i > 0
-      by_cases h_i_zero : i = 0
-      · -- Case: i = 0
-        -- When i = 0, (p_i 0).coeff(n-1) = 0, so degree < n-1
-        -- diff_poly = p_i j - p_i 0 has degree n-1 with leading coeff j.val
-        have h_deg_diff : diff_poly.natDegree = n - 1 := by
-          -- p_i 0 has degree ≤ n-2 (all terms have degree ≤ n-2)
-          have h_deg_i_le : (p_i i).natDegree ≤ n - 2 := by
-            rw [h_i_zero]
-            have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate 0 k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 2 := by
-              intro k _
-              have h_adj := adj_poly f 0 k
-              by_cases h0k : (0 : Fin n) = k
-              · -- Diagonal: but k = 0 so C(0) = 0
-                have : k = 0 := h0k.symm
-                subst this
-                simp [mul_zero]
-              · -- Off-diagonal: degree ≤ n-2
-                by_cases hzero : (k.val : ℤ) = 0
-                · simp [hzero, mul_zero]
-                · have h_off := h_adj.2 h0k
-                  by_cases h_poly_zero : (charmatrix A).adjugate 0 k = 0
-                  · simp [h_poly_zero]
-                  · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
-                    simp
-                    exact h_off
-            exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
-          -- diff_poly = p_i j - p_i 0, where deg(p_i j) = n-1 and deg(p_i 0) ≤ n-2
-          calc diff_poly.natDegree
-              = (p_i j - p_i i).natDegree := rfl
-            _ = (p_i j).natDegree := by
-                apply Polynomial.natDegree_sub_eq_left_of_natDegree_lt
-                calc (p_i i).natDegree
-                    ≤ n - 2 := h_deg_i_le
-                  _ < n - 1 := by
-                      have h_n_pos : n > 0 := h.out
-                      omega
-                  _ = (p_i j).natDegree := h_deg_j.symm
-            _ = n - 1 := h_deg_j
+      -- With v = (1,2,...,n), ALL indices including i=0 have degree n-1
+      -- because v_k = k.val + 1 ≥ 1 for all k ∈ Fin n
+      have h_deg_i : (p_i i).natDegree = n - 1 := by
+        have h_deg_le : (p_i i).natDegree ≤ n - 1 := by
+          have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).natDegree ≤ n - 1 := by
+            intro k _
+            have h_adj := adj_poly f i k
+            by_cases hik : i = k
+            · -- Diagonal case
+              subst hik
+              have h_monic := (h_adj.1 rfl)
+              have h_C_ne_zero : Polynomial.C ((i.val + 1) : ℤ) ≠ 0 := by
+                apply Polynomial.C_ne_zero.mpr
+                omega
+              rw [Polynomial.natDegree_mul h_monic.1.ne_zero h_C_ne_zero, Polynomial.natDegree_C]
+              simp [h_monic.2]
+            · -- Off-diagonal case
+              have h_off := h_adj.2 hik
+              by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
+              · simp [h_poly_zero]
+              · have h_C_ne_zero : Polynomial.C ((k.val + 1) : ℤ) ≠ 0 := by
+                  apply Polynomial.C_ne_zero.mpr
+                  omega
+                rw [Polynomial.natDegree_mul h_poly_zero h_C_ne_zero, Polynomial.natDegree_C]
+                simp only [add_zero]
+                calc ((charmatrix A).adjugate i k).natDegree
+                    ≤ n - 2 := h_off
+                  _ ≤ n - 1 := by omega
+          exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
+        have h_coeff_ne_zero : (p_i i).coeff (n - 1) ≠ 0 := by
+          rw [h_p_i_coeff i]
+          omega
+        have h_deg_ge : (p_i i).natDegree ≥ n - 1 := by
+          apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
+        omega
 
-        rw [Polynomial.leadingCoeff, h_deg_diff]
-        -- coeff (n-1) of diff_poly = coeff (n-1) of p_i j = j.val
+      have h_coeff_diff : diff_poly.coeff (n - 1) = j.val - i.val := by
         calc diff_poly.coeff (n - 1)
             = (p_i j - p_i i).coeff (n - 1) := rfl
           _ = (p_i j).coeff (n - 1) - (p_i i).coeff (n - 1) := Polynomial.coeff_sub _ _ _
-          _ = (p_i j).coeff (n - 1) - 0 := by
-              -- (p_i 0).coeff(n-1) = 0 by h_p_i_coeff
-              congr 1
-              rw [h_i_zero]
-              exact h_p_i_coeff 0
-          _ = (p_i j).coeff (n - 1) := by ring
-          _ > 0 := by
-              -- (p_i j).coeff(n-1) = j.val by h_p_i_coeff
-              have : (p_i j).coeff (n - 1) = j.val := h_p_i_coeff j
-              rw [this]
-              simp only [Nat.cast_pos]
-              exact h_j_pos
+          _ = (j.val + 1) - (i.val + 1) := by
+            rw [h_p_i_coeff j, h_p_i_coeff i]
+          _ = j.val - i.val := by ring
 
-      · -- Case: i > 0
-        -- Both p_i j and p_i i have degree n-1
-        have h_deg_i : (p_i i).natDegree = n - 1 := by
-          have h_deg_le : (p_i i).natDegree ≤ n - 1 := by
-            have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
-              intro k _
-              have h_adj := adj_poly f i k
-              by_cases hik : i = k
-              · by_cases hzero : (k.val : ℤ) = 0
-                · simp [hzero, mul_zero]
-                · subst hik
-                  have h_monic := (h_adj.1 rfl)
-                  rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
-                  simp [h_monic.2]
-              · by_cases hzero : (k.val : ℤ) = 0
-                · simp [hzero, mul_zero]
-                · have h_off := h_adj.2 hik
-                  by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
-                  · simp [h_poly_zero]
-                  · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
-                    simp
-                    apply Nat.le_trans h_off
-                    have h_n_pos : n > 0 := h.out
-                    omega
-            exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
-          have h_coeff_ne_zero : (p_i i).coeff (n - 1) ≠ 0 := by
-            rw [h_p_i_coeff i]
-            simp only [Nat.cast_ne_zero]
-            intro h_absurd
-            have : i = 0 := Fin.ext h_absurd
-            exact h_i_zero this
-          have h_deg_ge : (p_i i).natDegree ≥ n - 1 := by
-            apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
+      have h_deg_diff : diff_poly.natDegree = n - 1 := by
+        have h_coeff_ne_zero : diff_poly.coeff (n - 1) ≠ 0 := by
+          rw [h_coeff_diff]
+          have : i.val < j.val := Fin.val_fin_lt.mp hij
           omega
-
-        have h_coeff_diff : diff_poly.coeff (n - 1) = j.val - i.val := by
-          calc diff_poly.coeff (n - 1)
-              = (p_i j - p_i i).coeff (n - 1) := rfl
-            _ = (p_i j).coeff (n - 1) - (p_i i).coeff (n - 1) := Polynomial.coeff_sub _ _ _
-            _ = j.val - i.val := by
-              rw [h_p_i_coeff j, h_p_i_coeff i]
-
-        have h_deg_diff : diff_poly.natDegree = n - 1 := by
-          have h_coeff_ne_zero : diff_poly.coeff (n - 1) ≠ 0 := by
-            rw [h_coeff_diff]
-            have : i.val < j.val := Fin.val_fin_lt.mp hij
-            omega
-          have h_deg_le : diff_poly.natDegree ≤ n - 1 := by
-            calc diff_poly.natDegree
-                ≤ max (p_i j).natDegree (p_i i).natDegree := Polynomial.natDegree_sub_le _ _
-              _ = max (n - 1) (n - 1) := by rw [h_deg_j, h_deg_i]
-              _ = n - 1 := max_self _
-          have h_deg_ge : diff_poly.natDegree ≥ n - 1 := by
-            apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
-          omega
-
-        rw [Polynomial.leadingCoeff, h_deg_diff, h_coeff_diff]
-        have : i.val < j.val := Fin.val_fin_lt.mp hij
+        have h_deg_le : diff_poly.natDegree ≤ n - 1 := by
+          calc diff_poly.natDegree
+              ≤ max (p_i j).natDegree (p_i i).natDegree := Polynomial.natDegree_sub_le _ _
+            _ = max (n - 1) (n - 1) := by rw [h_deg_j, h_deg_i]
+            _ = n - 1 := max_self _
+        have h_deg_ge : diff_poly.natDegree ≥ n - 1 := by
+          apply Polynomial.le_natDegree_of_ne_zero h_coeff_ne_zero
         omega
+
+      rw [Polynomial.leadingCoeff, h_deg_diff, h_coeff_diff]
+      have : i.val < j.val := Fin.val_fin_lt.mp hij
+      omega
 
     let x₀ := coeff_bound diff_poly
     -- Prove that x₀ > 0
@@ -1165,30 +1166,32 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
 
       -- p_i i has degree ≤ n-1
       have h_deg_pi : (p_i i).natDegree ≤ n - 1 := by
-        -- p_i i = ∑_k adjugate[i,k] * C k
+        -- p_i i = ∑_k adjugate[i,k] * C(k+1)
         -- Each term has degree at most n-1
-        have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C (k.val : ℤ)).natDegree ≤ n - 1 := by
+        have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).natDegree ≤ n - 1 := by
           intro k _
           have h_adj := adj_poly f i k
           by_cases hik : i = k
           · -- Diagonal: degree = n-1
-            by_cases hzero : (k.val : ℤ) = 0
-            · simp [hzero, mul_zero]
-            · subst hik
-              have h_monic := (h_adj.1 rfl)
-              rw [Polynomial.natDegree_mul h_monic.1.ne_zero (Polynomial.C_ne_zero.mpr hzero)]
-              simp [h_monic.2]
+            subst hik
+            have h_monic := (h_adj.1 rfl)
+            have h_C_ne_zero : Polynomial.C ((i.val + 1) : ℤ) ≠ 0 := by
+              apply Polynomial.C_ne_zero.mpr
+              omega
+            rw [Polynomial.natDegree_mul h_monic.1.ne_zero h_C_ne_zero, Polynomial.natDegree_C]
+            simp [h_monic.2]
           · -- Off-diagonal: degree ≤ n-2 ≤ n-1
-            by_cases hzero : (k.val : ℤ) = 0
-            · simp [hzero, mul_zero]
-            · have h_off := h_adj.2 hik
-              by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
-              · simp [h_poly_zero]
-              · rw [Polynomial.natDegree_mul h_poly_zero (Polynomial.C_ne_zero.mpr hzero)]
-                simp
-                apply Nat.le_trans h_off
-                have h_n_pos : n > 0 := h.out
+            have h_off := h_adj.2 hik
+            by_cases h_poly_zero : (charmatrix A).adjugate i k = 0
+            · simp [h_poly_zero]
+            · have h_C_ne_zero : Polynomial.C ((k.val + 1) : ℤ) ≠ 0 := by
+                apply Polynomial.C_ne_zero.mpr
                 omega
+              rw [Polynomial.natDegree_mul h_poly_zero h_C_ne_zero, Polynomial.natDegree_C]
+              simp only [add_zero]
+              calc ((charmatrix A).adjugate i k).natDegree
+                  ≤ n - 2 := h_off
+                _ ≤ n - 1 := by omega
         exact Polynomial.natDegree_sum_le_of_forall_le Finset.univ _ h_bound
 
       -- Since deg(p_m) = n > n-1 ≥ deg(p_i i), the leading coefficient is just that of p_m
@@ -1536,7 +1539,7 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
   -- Get the bound from adj_poly_strict_increasing
   have h_increasing := adj_poly_strict_increasing f
   let A := func_matrix f
-  let v : Fin n → ℤ := fun i => i.val
+  let v : Fin n → ℤ := fun i => i.val + 1  -- Use v = (1, 2, ..., n) instead of (0, 1, ..., n-1)
   let M := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate
   let y := fun (x : ℤ) => M x *ᵥ v
   let m := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).det
@@ -1685,34 +1688,47 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
           = y x ⟨ZMod.val (f (i_fin.val : ZMod n)), ZMod.val_lt _⟩ := by rw [← h_fi]
         _ = x * y x i_fin - m_val * v i_fin := h_adj
 
-    -- Simplify: v i_fin = i_fin.val since v is defined as fun i => i.val
-    have h_v_eq : v i_fin = (i_fin.val : ℤ) := rfl
+    -- Simplify: v i_fin = i_fin.val + 1 since v is defined as fun i => i.val + 1
+    have h_v_eq : v i_fin = ((i_fin.val : ℤ) + 1) := rfl
 
     -- Now cast to ZMod modulus
-    -- From h_y_relation and h_v_eq: y x fi_fin = x * y x i_fin - m_val * i_fin.val
+    -- From h_y_relation: y x fi_fin = x * y x i_fin - m_val * v i_fin
+    -- where v i_fin = i_fin.val + 1
     -- Casting to ZMod modulus and using m_val ≡ 0 (modulus):
     calc j (f i)
         = (y x fi_fin : ZMod modulus) := rfl
-      _ = ((x * y x i_fin - m_val * (i_fin.val : ℤ)) : ZMod modulus) := by
-          simp only [h_y_relation, h_v_eq]
+      _ = ((x * y x i_fin - m_val * v i_fin) : ZMod modulus) := by
+          rw [h_y_relation]
           push_cast
           ring
-      _ = ((x * y x i_fin) : ZMod modulus) - ((m_val * (i_fin.val : ℤ)) : ZMod modulus) := by simp
-      _ = ((x * y x i_fin) : ZMod modulus) - 0 := by
-          -- Show (m_val : ZMod modulus) = 0 since modulus = m_val.natAbs and m_val > 0
-          congr 1
+      _ = ((x * y x i_fin - m_val * (↑↑i_fin + 1)) : ZMod modulus) := by
+          rw [h_v_eq]
           norm_cast
-          refine (ZMod.intCast_zmod_eq_zero_iff_dvd (m_val * ↑↑i_fin) modulus).mpr ?_
-          -- Need: (modulus : ℤ) ∣ m_val * i_fin.val
-          -- Since modulus = m_val.natAbs and m_val > 0, we have (modulus : ℤ) = m_val
-          -- So m_val ∣ m_val * i_fin.val, which is obvious
-          have h_mod_eq : (modulus : ℤ) = m_val := by
-            simp only [modulus]
-            exact Int.natAbs_of_nonneg (le_of_lt m_pos)
-          rw [h_mod_eq]
-          exact dvd_mul_right m_val (i_fin.val : ℤ)
+      _ = ((x * y x i_fin - (m_val * ↑↑i_fin + m_val)) : ZMod modulus) := by
+          congr 1
+          ring
+      _ = ((x * y x i_fin) : ZMod modulus) - ((m_val * (i_fin.val : ℤ)) : ZMod modulus) - ((m_val : ℤ) : ZMod modulus) := by
+          push_cast
+          ring
+      _ = ((x * y x i_fin) : ZMod modulus) - 0 - 0 := by
+          -- Show both (m_val * i_fin.val) and m_val cast to 0 in ZMod modulus
+          -- since modulus = m_val.natAbs and m_val > 0
+          congr 2
+          · norm_cast
+            refine (ZMod.intCast_zmod_eq_zero_iff_dvd (m_val * ↑↑i_fin) modulus).mpr ?_
+            have h_mod_eq : (modulus : ℤ) = m_val := by
+              simp only [modulus]
+              exact Int.natAbs_of_nonneg (le_of_lt m_pos)
+            rw [h_mod_eq]
+            exact dvd_mul_right m_val (i_fin.val : ℤ)
+          · norm_cast
+            refine (ZMod.intCast_zmod_eq_zero_iff_dvd m_val modulus).mpr ?_
+            have h_mod_eq : (modulus : ℤ) = m_val := by
+              simp only [modulus]
+              exact Int.natAbs_of_nonneg (le_of_lt m_pos)
+            rw [h_mod_eq]
       _ = ((x * y x i_fin) : ZMod modulus) := by ring
-      _ = (x : ZMod modulus) * (y x i_fin : ZMod modulus) := by rfl
+      _ = (x : ZMod modulus) * (y x i_fin : ZMod modulus) := by ring
       _ = (x : ZMod modulus) * j i := rfl
 
 /-
@@ -1746,34 +1762,37 @@ Step 4: Compute adjugate matrix adj(M(x)) as polynomial matrix
                [0, x(x-1), 0],
                [0, (x-1), (x-1)²]]
 
-Step 5: Choose v = (0, 1, 2)ᵀ, compute y(x) = adj(M(x)) · v as polynomials
-  y₀(x) = x(x-1)·0 = 0
-  y₁(x) = x(x-1)·1 = x² - x
-  y₂(x) = (x-1)·1 + (x-1)²·2 = (x-1) + 2(x-1)² = (x-1)(1 + 2(x-1)) = (x-1)(2x-1)
+Step 5: Choose v = (1, 2, 3)ᵀ, compute y(x) = adj(M(x)) · v as polynomials
+  y₀(x) = x(x-1)·1 = x² - x
+  y₁(x) = x(x-1)·2 = 2x² - 2x
+  y₂(x) = (x-1)·2 + (x-1)²·3 = 2(x-1) + 3(x-1)² = (x-1)(2 + 3(x-1)) = (x-1)(3x-1)
 
 Step 6: Verify polynomial properties
-  - y₀(x) = 0
-  - y₁(x) = x² - x
-  - y₂(x) = (x-1)(2x-1)
-  - For x ≥ 4: 0 ≤ y₁(x) < y₂(x) < m(x)
+  - y₀(x) = x² - x = x(x-1)
+  - y₁(x) = 2x² - 2x = 2x(x-1)
+  - y₂(x) = (x-1)(3x-1)
+  - For x ≥ 4: 0 < y₀(x) < y₁(x) < y₂(x) < m(x)
 
 Step 7: Evaluate at x = 4
   - m = m(4) = 4³ - 2·4² + 4 = 64 - 32 + 4 = 36
-  - y₀ = y₀(4) = 0
-  - y₁ = y₁(4) = 4² - 4 = 12
-  - y₂ = y₂(4) = (4-1)(2·4-1) = 3·7 = 21
+  - y₀ = y₀(4) = 4² - 4 = 12
+  - y₁ = y₁(4) = 2·4² - 2·4 = 32 - 8 = 24
+  - y₂ = y₂(4) = (4-1)(3·4-1) = 3·11 = 33
 
-  Indeed: 0 < 12 < 21 < 36 ✓
+  Indeed: 0 < 12 < 24 < 33 < 36 ✓
 
 Step 8: Define linear representation
   - m = 36 (the modulus)
   - a = 4 (the multiplier)
-  - j: ℤ/3ℤ → ℤ/36ℤ given by j(0)=0, j(1)=12, j(2)=21
+  - j: ℤ/3ℤ → ℤ/36ℤ given by j(0)=12, j(1)=24, j(2)=33
 
 Step 9: Verify j(f(i)) = a · j(i) mod m
-  - j(f(0)) = j(0) = 0 = 4·0 ✓
-  - j(f(1)) = j(1) = 12 = 4·12 mod 36 (48 = 36 + 12) ✓
-  - j(f(2)) = j(1) = 12 = 4·21 mod 36 (84 = 2·36 + 12) ✓
+  - j(f(0)) = j(0) = 12 = 4·12 mod 36 (48 = 36 + 12) ✓
+  - j(f(1)) = j(1) = 24 = 4·24 mod 36 (96 = 2·36 + 24) ✓
+  - j(f(2)) = j(1) = 24 = 4·33 mod 36 (132 = 3·36 + 24) ✓
+
+Note: With v = (1,2,3) instead of v = (0,1,2), all coordinates are now positive
+and strictly increasing, eliminating edge cases in the proof.
 -/
 example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fin 3) ℤ)
     (m : ℤ) (adj_M : Matrix (Fin 3) (Fin 3) ℤ) (v : Fin 3 → ℤ) (y : Fin 3 → ℤ),
@@ -1788,10 +1807,10 @@ example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fi
     m = 36 ∧
     -- adj_M is the adjugate
     adj_M = M.adjugate ∧
-    -- v and y are as computed
-    v = ![0, 1, 2] ∧
+    -- v and y are as computed (using v = (1,2,3))
+    v = ![1, 2, 3] ∧
     y = adj_M *ᵥ v ∧
-    y = ![0, 12, 21] ∧
+    y = ![12, 24, 33] ∧
     -- This gives a linear representation
     (let zmodToFin : ZMod 3 → Fin 3 := fun x => ⟨ZMod.val x, ZMod.val_lt x⟩
      let j : ZMod 3 → ZMod 36 := fun i => (y (zmodToFin i) : ZMod 36)
@@ -1806,7 +1825,7 @@ example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fi
   let M := x • (1 : Matrix (Fin 3) (Fin 3) ℤ) - A
   let m := M.det
   let adj_M := M.adjugate
-  let v : Fin 3 → ℤ := ![0, 1, 2]
+  let v : Fin 3 → ℤ := ![1, 2, 3]
   let y := adj_M *ᵥ v
 
   use A, x, M, m, adj_M, v, y
@@ -1819,25 +1838,25 @@ example : ∃ (A : Matrix (Fin 3) (Fin 3) ℤ) (x : ℤ) (M : Matrix (Fin 3) (Fi
   · -- m = 36
     decide
   constructor; · rfl  -- adj_M = M.adjugate
-  constructor; · rfl  -- v = ![0,1,2]
+  constructor; · rfl  -- v = ![1,2,3]
   constructor; · rfl  -- y = adj_M *ᵥ v
   constructor
-  · -- y = ![0, 12, 21]
+  · -- y = ![12, 24, 33]
     decide
   -- Prove the linear representation property
   let j : ZMod 3 → ZMod 36 := fun i => (y (zmodToFin i) : ZMod 36)
   let a : ZMod 36 := 4
 
   constructor
-  · -- Injectivity: j(0)=0, j(1)=12, j(2)=21 are distinct mod 36
+  · -- Injectivity: j(0)=12, j(1)=24, j(2)=33 are distinct mod 36
     decide
   · -- Linear relation: j(f(i)) = a · j(i) mod 36
     intro i
     -- We need to check all three cases: i = 0, 1, 2
     -- f(0) = 0, f(1) = 1, f(2) = 1
-    -- j(0) = 0, j(1) = 12, j(2) = 21
+    -- j(0) = 12, j(1) = 24, j(2) = 33
     -- a = 4
-    -- Check: j(f(0)) = j(0) = 0 = 4·0 = a·j(0) ✓
-    -- Check: j(f(1)) = j(1) = 12 = 4·12 mod 36 = 48 mod 36 = 12 ✓
-    -- Check: j(f(2)) = j(1) = 12 = 4·21 mod 36 = 84 mod 36 = 12 ✓
+    -- Check: j(f(0)) = j(0) = 12 = 4·12 mod 36 = 48 mod 36 = 12 ✓
+    -- Check: j(f(1)) = j(1) = 24 = 4·24 mod 36 = 96 mod 36 = 24 ✓
+    -- Check: j(f(2)) = j(1) = 24 = 4·33 mod 36 = 132 mod 36 = 24 ✓
     fin_cases i <;> decide
