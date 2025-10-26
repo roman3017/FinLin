@@ -287,6 +287,12 @@ p_{ij}(x) has degree at most n-2 for all i≠j∈ℤ/nℤ.
 
 We use Mathlib's charmatrix (which is X*I - M as a polynomial matrix) to formalize this.
 The adjugate entries are naturally polynomials via the charmatrix construction.
+
+Proof structure:
+1. Four helper lemmas encapsulate the main technical steps
+2. Main proof splits into diagonal (i = j) and off-diagonal (i ≠ j) cases
+3. Diagonal case: shows adjugate entry is monic of degree n-1 via characteristic polynomial
+4. Off-diagonal case: uses degree bound from cofactor expansion
 -/
 lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
     ∀ i j : Fin n,
@@ -297,20 +303,96 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
   intro i j
   let A := func_matrix f
   let p := (charmatrix A).adjugate i j
-  -- Note: That p.eval x = (x•I - A).adjugate[i,j] follows from:
-  -- 1. charmatrix A evaluated at x is x•I - A (by definition)
-  -- 2. Evaluation commutes with adjugate (RingHom.map_adjugate)
-  -- This is straightforward and doesn't need to be stated as a separate condition.
-  -- Helper lemma: updateRow with Pi.single equals submatrix determinant
+
+  -- ========== HELPER LEMMAS (6 sorries to resolve) ==========
+
+  -- Helper 1: Cofactor expansion - diagonal entry of adjugate
+  -- KEY LEMMA: det(M with row k replaced by e_k) = det(M with row k, col k deleted)
+  -- This is the fundamental relationship between adjugate and minors
   have h_update_row : ∀ (M : Matrix (Fin n) (Fin n) (Polynomial ℤ)) (k : Fin n),
       (M.updateRow k (Pi.single k 1)).det =
       (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
     intro M k
-    rw [← Matrix.adjugate_apply]
-    have : Matrix.adjugate M k k = det (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)) := by
-      -- adjugate M k k = det (M.updateRow k (Pi.single k 1)) = cofactor k k M = det submatrix
+    sorry
+
+  -- Helper 2: Cardinality of complement in Fin n
+  -- Standard fact: removing one element from a set of size n leaves n-1 elements
+  have h_card_complement : ∀ (k : Fin n), Fintype.card {x : Fin n // x ≠ k} = n - 1 := by
+    intro k
+    -- Use the complement formula and simplify
+    calc Fintype.card {x : Fin n // x ≠ k}
+      _ = Fintype.card {x : Fin n // ¬(x = k)} := by simp [ne_eq]
+      _ = Fintype.card (Fin n) - Fintype.card {x : Fin n // x = k} :=
+          Fintype.card_subtype_compl (fun x => x = k)
+      _ = n - Fintype.card {x : Fin n // x = k} := by
+          congr 1
+          convert Fintype.card_fin n
+      _ = n - 1 := by rw [Fintype.card_subtype_eq k]
+
+  -- Helper 3: Charmatrix commutes with submatrix
+  -- Structural lemma: submatrix of (X·I - A) = X·I - (submatrix of A)
+  have h_charmatrix_submatrix : ∀ (M : Matrix (Fin n) (Fin n) ℤ) (k : Fin n),
+      (charmatrix M).submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val) =
+      charmatrix (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)) := by
+    intro M k
+    ext i j
+    simp only [Matrix.submatrix_apply, Matrix.charmatrix_apply, Matrix.diagonal_apply]
+    by_cases h : i = j
+    · simp [h]
+    · have hval : i.val ≠ j.val := by
+        intro heq
+        apply h
+        exact Subtype.ext heq
+      simp [h, hval]
+
+  -- Helper 4: Main off-diagonal degree bound
+  -- MAIN TECHNICAL LEMMA: Combines cofactor expansion with degree analysis
+  have h_det_offdiag_bound : ∀ (M : Matrix (Fin n) (Fin n) ℤ) (i j : Fin n) (hij : i ≠ j),
+      ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
+    intro M i j hij
+    have h_deg : ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree ≤
+        ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := by
+      convert det_degree_le_sum_degrees ((charmatrix M).updateRow j (Pi.single i 1))
+    have h_row_j : ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col j).natDegree = 0 := by
+      apply Finset.sum_eq_zero
+      intro col _
+      rw [Matrix.updateRow_apply]
+      split_ifs with h
+      · simp only [Pi.single_apply]
+        by_cases hij' : j = i
+        · rw [if_pos hij', Polynomial.natDegree_one]
+        · rw [if_neg hij', Polynomial.natDegree_zero]
+      · simp only [Matrix.charmatrix_apply, Matrix.diagonal_apply]
+        rw [if_neg h]
+        norm_num [Polynomial.natDegree_C]
+    have h_row_i : ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree ≤ 0 := by
       sorry
-    rw [this]
+    have h_other_rows : ∀ r : Fin n, r ≠ j → r ≠ i →
+        ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col r).natDegree ≤ 1 := by
+      intro r hrj hri
+      sorry
+    have h_total_bound : ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree ≤ n - 2 := by
+      have h_split : ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree =
+          (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col j).natDegree) +
+          (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree) +
+          ∑ row ∈ Finset.univ.filter (fun r => r ≠ j ∧ r ≠ i), ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := by
+        sorry
+      rw [h_split]
+      calc (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col j).natDegree) +
+           (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree) +
+           ∑ row ∈ Finset.univ.filter (fun r => r ≠ j ∧ r ≠ i), ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree
+        _ ≤ 0 + 0 + (n - 2) * 1 := by
+            apply Nat.add_le_add
+            apply Nat.add_le_add
+            · rw [h_row_j]
+            · exact h_row_i
+            · sorry
+        _ = n - 2 := by omega
+    calc ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree
+      _ ≤ ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := h_deg
+      _ ≤ n - 2 := h_total_bound
+
+  -- ========== MAIN PROOF ==========
 
   by_cases hij : i = j
   · -- Case: i = j (Diagonal case: monic of degree n-1)
@@ -371,19 +453,7 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
         rw [h_eq]
         -- Show the submatrix is the charmatrix of the submatrix
         -- note that submatrix of charmatrix is another charmatrix which we know degree and leading coeff
-        have char_submat : (charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
-                                                     (fun (k : {x // x ≠ j}) => k.val) =
-                           charmatrix (A.submatrix (fun (i : {x // x ≠ j}) => i.val)
-                                                   (fun (k : {x // x ≠ j}) => k.val)) := by
-          ext i k
-          simp only [submatrix_apply, charmatrix_apply, diagonal_apply]
-          by_cases h : i = k
-          · simp [h]
-          · have hval : i.val ≠ k.val := by
-              intro heq
-              apply h
-              exact Subtype.ext heq
-            simp [h, hval]
+        have char_submat := h_charmatrix_submatrix A j
         rw [char_submat, ← Matrix.charpoly]
         exact charpoly_monic _
 
@@ -395,29 +465,9 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           -- note that submatrix of charmatrix is another charmatrix which we know degree and leading coeff
           exact h_update_row (charmatrix A) j
         rw [h_eq]
-        have char_submat : (charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
-                                                     (fun (k : {x // x ≠ j}) => k.val) =
-                           charmatrix (A.submatrix (fun (i : {x // x ≠ j}) => i.val)
-                                                   (fun (k : {x // x ≠ j}) => k.val)) := by
-          ext i k
-          simp only [submatrix_apply, charmatrix_apply, diagonal_apply]
-          by_cases h : i = k
-          · simp [h]
-          · have hval : i.val ≠ k.val := by
-              intro heq
-              apply h
-              exact Subtype.ext heq
-            simp [h, hval]
+        have char_submat := h_charmatrix_submatrix A j
         rw [char_submat, ← Matrix.charpoly]
-        have card_eq : Fintype.card {x // x ≠ j} = n - 1 := by
-          -- The complement of a singleton has cardinality n - 1
-          calc Fintype.card {x // x ≠ j}
-            _ = Fintype.card {x : Fin n // ¬(x = j)} := by simp [ne_eq]
-            _ = Fintype.card (Fin n) - Fintype.card {x : Fin n // x = j} :=
-                Fintype.card_subtype_compl (fun x => x = j)
-            _ = n - Fintype.card {x : Fin n // x = j} := by
-                sorry -- Fintype.card_fin typeclass mismatch issue
-            _ = n - 1 := by simp
+        have card_eq := h_card_complement j
         rw [← card_eq]
         exact charpoly_natDegree_eq_dim (A.submatrix (fun (i : {x // x ≠ j}) => i.val)
                                                       (fun (k : {x // x ≠ j}) => k.val))
@@ -430,77 +480,8 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
       exact absurd h_eq hij
     · intro _
       rw [adjugate_apply]
-      -- The adjugate entry (charmatrix A).adjugate[i,j] = det((charmatrix A).updateRow j (Pi.single i 1))
-      -- By det_degree_le_sum_degrees: det degree ≤ sum of entry degrees
-      -- By charMatrix_offdiag_minor_sum_degrees: the relevant sum = n - 2 for off-diagonal
-      have h_bound_deg : ((charmatrix A).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
-        -- Strategy: The key insight is that updateRow j (Pi.single i 1) effectively gives us
-        -- a matrix where expanding by row j leaves us with the submatrix excluding row j and column i
-        -- We have the lemma charMatrix_offdiag_minor_sum_degrees that says this sum is n-2
-        -- Combined with det_degree_le_sum_degrees, we get the bound
-
-        let M' := (charmatrix A).updateRow j (Pi.single i 1)
-
-        -- Step 1: Apply det_degree_le_sum_degrees to bound the determinant degree
-        have h_deg_bound : M'.det.natDegree ≤ ∑ i' : Fin n, ∑ j' : Fin n, (M' j' i').natDegree := by
-          convert det_degree_le_sum_degrees M'
-          -- convert handles typeclass differences automatically
-
-        -- Step 2: Understand the structure of M' = (charmatrix A).updateRow j (Pi.single i 1)
-        -- Row j has been replaced with Pi.single i 1, which has:
-        --   - entry 1 at position i (degree 0)
-        --   - entry 0 at all other positions (degree 0)
-        -- All other rows are from charmatrix A
-
-        -- Step 3: Compute the sum of degrees for M'
-        -- For row j (the updated row): all entries have degree 0
-        have h_row_j_deg : ∑ j' : Fin n, (M' j' j).natDegree = 0 := by
-          sorry
-
-        -- For other rows k ≠ j: entries come from charmatrix A
-        -- charmatrix A has diagonal entries of degree 1, off-diagonal of degree 0
-        have h_other_rows : ∀ k : Fin n, k ≠ j →
-            ∑ j' : Fin n, (M' j' k).natDegree = 1 := by
-          sorry
-
-        -- Step 4: Sum over all columns
-        have h_total_sum : ∑ i' : Fin n, ∑ j' : Fin n, (M' j' i').natDegree = n - 1 := by
-          sorry -- Sum h_row_j_deg (contributes 0) and h_other_rows (contributes (n-1)×1)
-
-        -- Step 5: But we can get a tighter bound by observing the structure
-        -- updateRow j (Pi.single i 1) means when we expand det by row j,
-        -- only the entry at (j, i) is nonzero, giving us the submatrix with
-        -- row j and column i deleted
-
-        -- The submatrix excludes:
-        --   - diagonal entry at (j, j) if j is not in the deleted column i
-        --   - diagonal entry at (i, i) when we delete column i
-        -- This removes 2 diagonal entries (of degree 1 each) if i ≠ j
-
-        -- Step 6: The submatrix (charmatrix A) with row j and column i deleted
-        -- has sum of entry degrees = n - 2
-        have h_submatrix_sum : ∑ i' : {x : Fin n // x ≠ j}, ∑ j' : {x : Fin n // x ≠ i},
-            (charmatrix A i'.val j'.val).natDegree = n - 2 := by
-          -- Convert to handle potential typeclass mismatch
-          convert charMatrix_offdiag_minor_sum_degrees A i j hij
-
-        -- Step 7: Connect det of M' to det of submatrix
-        -- When we expand M'.det by row j using cofactor expansion,
-        -- the only nonzero term comes from position (j, i) with coefficient 1
-        -- This gives det(submatrix with row j and column i deleted)
-        -- The submatrix is (n-1)×(n-1), hence square, with determinant well-defined
-        have h_det_eq_submatrix : ∃ (p : Polynomial ℤ), M'.det = p ∧ p.natDegree ≤ n - 2 := by
-          sorry -- Use cofactor expansion or similar technique
-
-        -- Step 8: Extract the bound
-        obtain ⟨p, h_eq, h_deg⟩ := h_det_eq_submatrix
-
-        -- Step 9: Conclude
-        calc M'.det.natDegree
-            = p.natDegree := by rw [h_eq]
-          _ ≤ n - 2 := h_deg
-
-      exact h_bound_deg
+      -- Use the helper lemma that directly gives us the bound
+      exact h_det_offdiag_bound A i j hij
 
 def coeff_bound (poly : Polynomial ℤ) : ℤ :=
   poly.support.sum (fun i => |poly.coeff i|)
