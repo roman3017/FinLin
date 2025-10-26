@@ -17,11 +17,11 @@ source $HOME/.elan/env
 lake exe cache get
 lake build
 
-lake build FinLin.Main
-lake env lean FinLin/Main.lean
+lake build FinLin.finmap
+lake env lean FinLin/finmap.lean
 
-leanblueprint all
-leanblueprint serve
+#leanblueprint all
+#leanblueprint serve
 ```
 
 ## References
