@@ -12,6 +12,7 @@ With this convention, each row of $A$ contains exactly one non-zero entry.
 \begin{lemma}
 \label{lem:func_matrix_eq}
 \lean{func_matrix_eq}
+\uses{def:func_matrix}
 \leanok
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function and $A=A_f$ be the adjacency matrix of the function $f$. 
 Then for all $i\in \{0,1,\ldots,n-1\}$ and $y\in \mathbb{Z}^n$
@@ -19,6 +20,7 @@ $$(A y)_i = y_{f(i)}.$$
 \end{lemma}
 
 \begin{proof}
+\uses{def:func_matrix}
 \leanok
 The proof follows from the Definition \ref{def:func_matrix}.
 $$(A y)_i = \sum_{j=0}^{n-1} a_{ij} y_j = \sum_{j=0}^{n-1} \delta_{f(i),j} y_j = y_{f(i)}$$
@@ -27,6 +29,7 @@ $$(A y)_i = \sum_{j=0}^{n-1} a_{ij} y_j = \sum_{j=0}^{n-1} \delta_{f(i),j} y_j =
 \begin{lemma}
 \label{lem:adj_eq}
 \lean{adj_eq}
+\uses{def:func_matrix}
 \leanok
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function and $A=A_f$ be the adjacency matrix of the function $f$. 
 Let $v\in \mathbb{Z}^n$, $y = \operatorname{adj}(x I - A) v$ and $m = \det(x I - A)$. Then for all $i\in \{0,1,\ldots,n-1\}$
@@ -34,6 +37,7 @@ $$y_{f(i)} = x y_i - m v_i.$$
 \end{lemma}
 
 \begin{proof}
+\uses{lem:func_matrix_eq}
 \leanok
 For adjugate matrix we have identity 
 $(x I - A) \operatorname{adj} (x I - A) = \det(x I - A) I$.
@@ -79,7 +83,6 @@ This follows from the standard properties of the characteristic polynomial.
 \label{lem:adj_poly}
 \lean{adj_poly}
 \leanok
-\uses{def:func_matrix, lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
 Let $M = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x I - A$.
 Then the matrix entries $m_{ij} = p_{ij}(x)$ are polynomials in $x$ for all $i,j\in \{0,1,\ldots,n-1\}$ such that
 \begin{itemize}
@@ -89,6 +92,7 @@ Then the matrix entries $m_{ij} = p_{ij}(x)$ are polynomials in $x$ for all $i,j
 \end{lemma}
 
 \begin{proof}
+\uses{lem:det_degree_le_sum_degrees, lem:charmatrix_helpers}
 The diagonal entries of $\operatorname{adj}(x I - A)$ are characteristic polynomials of $(n-1) \times (n-1)$ submatrices, hence monic of degree $n-1$ by Lemma \ref{lem:charmatrix_helpers}. 
 
 For the off-diagonal entries, we note that when we compute $\operatorname{adj}(x I - A)_{ij}$ for $i \neq j$, 
@@ -115,6 +119,7 @@ If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then for all integers
 \end{lemma}
 
 \begin{proof}
+\uses{def:coeff_bound}
 \leanok
 Write $p(n) = an^d + r(n)$ where $a > 0$ is the leading coefficient of $p$, $d = \deg(p)$, and $\deg(r) < d$.
 For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \operatorname{coeff\_bound}(p) = \sum_{k < d} |p_k|$.
@@ -134,6 +139,7 @@ $$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
 \end{lemma}
 
 \begin{proof}
+\uses{lem:adj_poly, lem:polynomial_positive, lem:charmatrix_helpers}
 \leanok
 The proof follows from Lemma \ref{lem:adj_poly} and Lemma \ref{lem:polynomial_positive}.
 Let $y = Mv$. Then $y_i = \sum_{k=0}^{n-1} m_{ik} (k+1)$.
@@ -166,11 +172,12 @@ in $\mathbb{Z}/m\mathbb{Z}$, where $m$ is a positive integer and $a$ is a consta
 \label{thm:linear_representation}
 \lean{linear_representation}
 \leanok
-\uses{def:func_matrix, lem:adj_eq, lem:adj_poly_strict_increasing, def:linear_representation}
+\uses{def:linear_representation}
 Any finite function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a linear representation.
 \end{theorem}
 
 \begin{proof}
+\uses{lem:adj_eq, lem:adj_poly_strict_increasing}
 \leanok
 Let us define $m = \det(x I - A)$, $a = x$ and $j(i) = y_i$ for $i \in \{0,1,\ldots,n-1\}$, where $y = Mv$ with $v = (1,2,\ldots,n)^T$. 
 By Lemma \ref{lem:adj_poly_strict_increasing}, we can choose $x$ large enough such that:
