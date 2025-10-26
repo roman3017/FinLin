@@ -39,7 +39,7 @@ The proof uses:
 This formalization is based on the paper arXiv:2510.20167
 -/
 
-open Matrix BigOperators
+open Matrix Polynomial BigOperators Finset
 
 /-
 Adjacency Matrix of a Function
@@ -137,8 +137,7 @@ lemma adj_eq {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) (x : ℤ) (v : Fin n �
   rw [h_expand, h_Ay] at h_i
   linarith
 
-open Polynomial BigOperators Finset in
-theorem det_degree_le_sum_degrees {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ[X]) :
+lemma det_degree_le_sum_degrees {n : ℕ} (M : Matrix (Fin n) (Fin n) ℤ[X]) :
     (M.det).natDegree ≤ ∑ i : Fin n, ∑ j : Fin n, (M j i).natDegree := by
   -- Local helper: a single element is ≤ the sum of all elements
   have single_element_sum_le : ∀ (a : Fin n → ℕ) (ha: ∀ j, 0 ≤ a j) (i : Fin n), a i ≤ ∑ j, a j := by
@@ -294,32 +293,21 @@ Proof structure:
 3. Diagonal case: shows adjugate entry is monic of degree n-1 via characteristic polynomial
 4. Off-diagonal case: uses degree bound from cofactor expansion
 -/
-lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
+lemma adj_poly {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
     ∀ i j : Fin n,
-    let A := func_matrix f
     let p := (charmatrix A).adjugate i j
     (i = j → p.Monic ∧ p.natDegree = n - 1) ∧
     (i ≠ j → p.natDegree ≤ n - 2) := by
   intro i j
-  let A := func_matrix f
-  let p := (charmatrix A).adjugate i j
-
-  -- ========== HELPER LEMMAS (6 sorries to resolve) ==========
-
-  -- Helper 1: Cofactor expansion - diagonal entry of adjugate
-  -- KEY LEMMA: det(M with row k replaced by e_k) = det(M with row k, col k deleted)
-  -- This is the fundamental relationship between adjugate and minors
   have h_update_row : ∀ (M : Matrix (Fin n) (Fin n) (Polynomial ℤ)) (k : Fin n),
       (M.updateRow k (Pi.single k 1)).det =
       (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
     intro M k
+    rw [← Matrix.adjugate_apply M k k]
     sorry
 
-  -- Helper 2: Cardinality of complement in Fin n
-  -- Standard fact: removing one element from a set of size n leaves n-1 elements
   have h_card_complement : ∀ (k : Fin n), Fintype.card {x : Fin n // x ≠ k} = n - 1 := by
     intro k
-    -- Use the complement formula and simplify
     calc Fintype.card {x : Fin n // x ≠ k}
       _ = Fintype.card {x : Fin n // ¬(x = k)} := by simp [ne_eq]
       _ = Fintype.card (Fin n) - Fintype.card {x : Fin n // x = k} :=
@@ -329,8 +317,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           convert Fintype.card_fin n
       _ = n - 1 := by rw [Fintype.card_subtype_eq k]
 
-  -- Helper 3: Charmatrix commutes with submatrix
-  -- Structural lemma: submatrix of (X·I - A) = X·I - (submatrix of A)
   have h_charmatrix_submatrix : ∀ (M : Matrix (Fin n) (Fin n) ℤ) (k : Fin n),
       (charmatrix M).submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val) =
       charmatrix (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)) := by
@@ -345,8 +331,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
         exact Subtype.ext heq
       simp [h, hval]
 
-  -- Helper 4: Main off-diagonal degree bound
-  -- MAIN TECHNICAL LEMMA: Combines cofactor expansion with degree analysis
   have h_det_offdiag_bound : ∀ (M : Matrix (Fin n) (Fin n) ℤ) (i j : Fin n) (hij : i ≠ j),
       ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
     intro M i j hij
@@ -365,7 +349,9 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
       · simp only [Matrix.charmatrix_apply, Matrix.diagonal_apply]
         rw [if_neg h]
         norm_num [Polynomial.natDegree_C]
-    have h_row_i : ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree ≤ 0 := by
+    have h_row_i : ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree = 0 := by
+      refine Eq.symm (Nat.eq_of_beq_eq_true ?_)
+      simp
       sorry
     have h_other_rows : ∀ r : Fin n, r ≠ j → r ≠ i →
         ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col r).natDegree ≤ 1 := by
@@ -385,41 +371,32 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
             apply Nat.add_le_add
             apply Nat.add_le_add
             · rw [h_row_j]
-            · exact h_row_i
+            · exact Nat.le_zero.mpr h_row_i
             · sorry
         _ = n - 2 := by omega
     calc ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree
       _ ≤ ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := h_deg
       _ ≤ n - 2 := h_total_bound
 
-  -- ========== MAIN PROOF ==========
-
   by_cases hij : i = j
   · -- Case: i = j (Diagonal case: monic of degree n-1)
     rw [hij]
-    -- We assume n > 1 for the interesting case
-    -- (For n = 0, we have NeZero 0 contradiction; for n = 1, the result is vacuous)
-    -- Helper: Fintype.card (Fin m) = m for any m
     have h1 (m : ℕ) : Fintype.card (Fin m) = m := by rw [Fintype.card_fin]
 
     by_cases hn1 : n = 1
     · -- Special case: n = 1
-      -- For a 1×1 matrix, we need to show the adjugate diagonal entry is monic of degree 0
       constructor
       · intro _
         constructor
         · -- Monic
           unfold Polynomial.Monic
-          -- For n=1, adjugate of 1×1 matrix [[p]] is [[1]], which is monic
           rw [adjugate_apply]
-          -- For 1×1 matrices, adjugate is identity
           subst hn1
           have : j = 0 := Fin.fin_one_eq_zero j
           subst this
           simp [Pi.single_eq_same, Matrix.updateRow_self]
         · -- Degree n-1 = 0
           rw [adjugate_apply]
-          -- For 1×1 matrices, adjugate is identity
           subst hn1
           have : j = 0 := Fin.fin_one_eq_zero j
           subst this
@@ -431,7 +408,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
     have hn : n > 1 := by
       omega
     haveI : Nontrivial (Fin n) := by
-      -- From n > 1, we get that Fintype.card (Fin n) = n > 1, so Fin n has 0 ≠ 1
       rw [← h1 n] at hn
       rw [nontrivial_iff]
       use 0, 1
@@ -442,7 +418,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
     · intro _
       constructor
       · -- Monic: The diagonal entry of adjugate(charmatrix A) is the charpoly of a submatrix
-        -- Apply adjugate definition and use the submatrix characterization
         rw [adjugate_apply]
         have h_eq : ((charmatrix A).updateRow j (Pi.single j 1)).det =
                     ((charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
@@ -451,8 +426,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
           rw [<-hij] at this ⊢
           exact this
         rw [h_eq]
-        -- Show the submatrix is the charmatrix of the submatrix
-        -- note that submatrix of charmatrix is another charmatrix which we know degree and leading coeff
         have char_submat := h_charmatrix_submatrix A j
         rw [char_submat, ← Matrix.charpoly]
         exact charpoly_monic _
@@ -462,7 +435,6 @@ lemma adj_poly {n : ℕ} [NeZero n] [Fintype (Fin n)] (f : ZMod n → ZMod n) :
         have h_eq : ((charmatrix A).updateRow j (Pi.single j 1)).det =
                     ((charmatrix A).submatrix (fun (i : {x // x ≠ j}) => i.val)
                                               (fun (k : {x // x ≠ j}) => k.val)).det := by
-          -- note that submatrix of charmatrix is another charmatrix which we know degree and leading coeff
           exact h_update_row (charmatrix A) j
         rw [h_eq]
         have char_submat := h_charmatrix_submatrix A j
@@ -492,7 +464,6 @@ If p ∈ ℤ[x] has positive leading coefficient, then p(n) > 0 for all n greate
 -/
 lemma polynomial_positive (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) (n : ℤ) :
     n > coeff_bound poly → n > 0 ∧ (poly.eval n) > 0 := by
-  open Polynomial Finset in
   have poly_nonzero : poly ≠ 0 := by
 
     intro H; simp [H] at h
@@ -716,11 +687,11 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     -- 5. Therefore: coeff(n-1) = 1 * (i.val + 1) = i.val + 1
 
     -- Get properties of adjugate entries from adj_poly
-    have h_adj := adj_poly f i i
+    have h_adj := adj_poly A i i
     have h_diag : ((charmatrix A).adjugate i i).Monic ∧ ((charmatrix A).adjugate i i).natDegree = n - 1 :=
       h_adj.1 rfl
     have h_off : ∀ k : Fin n, k ≠ i → ((charmatrix A).adjugate i k).natDegree ≤ n - 2 :=
-      fun k hk => (adj_poly f i k).2 (Ne.symm hk)
+      fun k hk => (adj_poly A i k).2 (Ne.symm hk)
 
     -- Expand p_i i as a sum and compute its coefficient
     unfold p_i
@@ -908,7 +879,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
             -- p_i i = ∑_k adjugate[i,k] * C (k+1), each term has degree ≤ n-1
             apply Polynomial.natDegree_sum_le_of_forall_le
             intro k _
-            have h_adj := adj_poly f i k
+            have h_adj := adj_poly A i k
             by_cases hik : i = k
             · -- Diagonal: degree = n-1
               by_cases hzero : ((k.val + 1) : ℤ) = 0
@@ -969,7 +940,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         have h_deg_le : (p_i j).natDegree ≤ n - 1 := by
           have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate j k * Polynomial.C ((k.val + 1) : ℤ)).natDegree ≤ n - 1 := by
             intro k _
-            have h_adj := adj_poly f j k
+            have h_adj := adj_poly A j k
             by_cases hjk : j = k
             · -- Diagonal case
               subst hjk
@@ -1005,7 +976,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         have h_deg_le : (p_i i).natDegree ≤ n - 1 := by
           have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).natDegree ≤ n - 1 := by
             intro k _
-            have h_adj := adj_poly f i k
+            have h_adj := adj_poly A i k
             by_cases hik : i = k
             · -- Diagonal case
               subst hik
@@ -1151,7 +1122,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
         -- Each term has degree at most n-1
         have h_bound : ∀ k ∈ Finset.univ, ((charmatrix A).adjugate i k * Polynomial.C ((k.val + 1) : ℤ)).natDegree ≤ n - 1 := by
           intro k _
-          have h_adj := adj_poly f i k
+          have h_adj := adj_poly A i k
           by_cases hik : i = k
           · -- Diagonal: degree = n-1
             subst hik
@@ -1507,7 +1478,7 @@ Any function f: ℤ/nℤ → ℤ/nℤ has a linear representation.
 Proof strategy:
 1. Use adj_poly_strict_increasing to get x₀ such that for x > x₀,
    the entries y x i are strictly increasing and bounded by m x
-2. Choose any integer x > x₀ to get specific values
+2. Choose an integer x > x₀ to get specific values
 3. Define j(i) = (y x i) mod (m x)
 4. Use adj_eq to show j(f(i)) ≡ x · j(i) (mod m x)
 5. Injectivity follows from strict ordering
