@@ -4,7 +4,7 @@ The main purpose of this repository is formal verification of results in this re
 
  - http://arxiv.org/abs/2510.20167
 
-The current status is here:
+All results are fully verified and the status is here:
 
  - https://roman3017.github.io/FinLin/blueprint/dep_graph_document.html
  - https://roman3017.github.io/FinLin
