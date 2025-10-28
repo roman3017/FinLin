@@ -78,10 +78,30 @@ This follows from the standard properties of the characteristic polynomial.
 \end{proof}
 
 \begin{lemma}
+\label{lem:adj_offdiag_sum_degrees_bound}
+\lean{adj_offdiag_sum_degrees_bound}
+\leanok
+\uses{lem:det_degree_le_sum_degrees}
+Let $A$ be an $n \times n$ matrix with integer entries and $\chi_A(x) = x I - A$ be its characteristic matrix.
+For $i \neq j$, the $(i,j)$ entry of $\operatorname{adj}(\chi_A(x))$ has degree at most $n-2$.
+\end{lemma}
+
+\begin{proof}
+\leanok
+The adjugate entry $\operatorname{adj}(\chi_A(x))_{ij}$ equals the determinant of the characteristic matrix with row $j$ and column $i$ removed from $\chi_A(x)$.
+
+This submatrix has diagonal entries from $\chi_A(x)$ except at diagonal positions $i$ and $j$ (which are deleted). 
+Since $\chi_A(x)$ has diagonal entries of degree $1$ (from $x I$) and off-diagonal entries of degree $0$ (from $-A$), 
+the submatrix has exactly $n-2$ diagonal entries of degree $1$ and all other entries of degree $0$.
+
+By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant has degree at most $n-2$.
+\end{proof}
+
+\begin{lemma}
 \label{lem:adj_poly}
 \lean{adj_poly}
 \leanok
-\uses{lem:det_degree_le_sum_degrees,lem:charmatrix_helpers}
+\uses{lem:adj_offdiag_sum_degrees_bound,lem:charmatrix_helpers}
 Let $M = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x I - A$.
 Then the matrix entries $m_{ij} = p_{ij}(x)$ are polynomials in $x$ for all $i,j\in \{0,1,\ldots,n-1\}$ such that
 \begin{itemize}
@@ -91,21 +111,18 @@ Then the matrix entries $m_{ij} = p_{ij}(x)$ are polynomials in $x$ for all $i,j
 \end{lemma}
 
 \begin{proof}
+\leanok
 The diagonal entries of $\operatorname{adj}(x I - A)$ are characteristic polynomials of $(n-1) \times (n-1)$ submatrices, hence monic of degree $n-1$ by Lemma \ref{lem:charmatrix_helpers}. 
 
-For the off-diagonal entries, we note that when we compute $\operatorname{adj}(x I - A)_{ij}$ for $i \neq j$, 
-we remove row $j$ and column $i$ from the characteristic matrix. The resulting matrix has 
-all entries of degree 0 besides $n-2$ diagonal entries of degree 1 from $x I$, since diagonal entries $ii$ and $jj$ were removed.
-By Lemma \ref{lem:det_degree_le_sum_degrees}, the determinant (and hence the adjugate entry) has degree at most $n-2$.
+The off-diagonal case follows directly from Lemma \ref{lem:adj_offdiag_sum_degrees_bound}.
 \end{proof}
 
 \begin{definition}
 \label{def:coeff_bound}
 \lean{coeff_bound}
 \leanok
-For a polynomial $p \in \mathbb{Z}[x]$, define the coefficient bound:
-$$\operatorname{coeff\_bound}(p) = \sum_{i \in \operatorname{support}(p)} |p_i|$$
-where $\operatorname{support}(p)$ is the set of indices with non-zero coefficients.
+For a polynomial $p(x) = \sum_{i=0}^{d} p_i x^i \in \mathbb{Z}[x]$, we define the coefficients bound:
+$$|p| = \sum_{i=0}^{d} |p_i|$$
 \end{definition}
 
 \begin{lemma}
@@ -113,16 +130,17 @@ where $\operatorname{support}(p)$ is the set of indices with non-zero coefficien
 \lean{polynomial_positive}
 \uses{def:coeff_bound}
 \leanok
-If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then for all integers $n > \operatorname{coeff\_bound}(p)$, we have $n > 0$ and $p(n) > 0$.
+If $p \in \mathbb{Z}[x]$ has positive leading coefficient, then for all integers $n \ge |p|$, we have $n > 0$ and $p(n) > 0$.
 \end{lemma}
 
 \begin{proof}
 \leanok
-Write $p(n) = an^d + r(n)$ where $a > 0$ is the leading coefficient of $p$, $d = \deg(p)$, and $\deg(r) < d$.
-For $n \geq 1$, we have $|r(n)| \leq B \cdot n^{d-1}$ where $B = \operatorname{coeff\_bound}(p) = \sum_{k < d} |p_k|$.
-For $n > B$:
-$$p(n) = an^d + r(n) \geq an^d - Bn^{d-1} = n^{d-1}(an - B) > 0$$
-since $a \geq 1$ being a positive integer and $n > B$. Also $n > B \geq 0$ ensures $n > 0$.
+Lemma is trivially true for $d=0$ so we can assume $d \geq 1$. Write $p(n) = an^d + r(n)$ where $a \ge 1$ is the leading coefficient of $p$, 
+$d = \deg(p)$, and $\deg(r) < d$. 
+For $n \ge |p|$:
+$$n \ge |p| \ge a \ge 1 > 0.$$
+Since $n \geq 1$, we have $|r(n)| \leq B n^{d-1}$ where $B = |p| - a$. Therefore,
+$$p(n) = an^d + r(n) \geq an^d - Bn^{d-1} = n^{d-1}(an - B) \ge (a|p| - B) \ge |p| - B = a \ge 1 > 0.$$
 \end{proof}
 
 \begin{lemma}

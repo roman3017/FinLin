@@ -5,6 +5,7 @@ det_degree_le_sum_degrees
 charmatrix_det_eq_charpoly
 charmatrix_det_monic
 charmatrix_det_natDegree
+adj_offdiag_sum_degrees_bound
 adj_poly
 coeff_bound
 polynomial_positive

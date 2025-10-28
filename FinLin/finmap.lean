@@ -180,102 +180,219 @@ lemma charmatrix_det_natDegree {n : ℕ} [Nontrivial (Fin n)] (M : Matrix (Fin n
   rw [charmatrix_det_eq_charpoly]
   exact Matrix.charpoly_natDegree_eq_dim M
 
-lemma charMatrix_offdiag_minor_sum_degrees {n : ℕ} (A : Matrix (Fin n) (Fin n) ℤ) (i j : Fin n) (hij : i ≠ j) :
-    ∑ i' : {x : Fin n // x ≠ j}, ∑ j' : {x : Fin n // x ≠ i},
-      (charmatrix A i'.val j'.val).natDegree = n - 2 := by
-  -- First, establish the degree properties of charmatrix entries
-  have charMatrix_diag_degree : ∀ k : Fin n, (charmatrix A k k).natDegree = 1 := by
-    intro k
-    rw [charmatrix_apply_eq]
-    rw [sub_eq_add_neg]
-    rw [Polynomial.natDegree_add_eq_left_of_natDegree_lt]
-    · exact Polynomial.natDegree_X
-    · calc ((-Polynomial.C (A k k))).natDegree
-          = (Polynomial.C (A k k)).natDegree := Polynomial.natDegree_neg _
-          _ = 0 := Polynomial.natDegree_C _
-          _ < Polynomial.X.natDegree := by rw [Polynomial.natDegree_X]; omega
+lemma adj_offdiag_sum_degrees_bound {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
+    ∀ i j : Fin n,
+    (i ≠ j → ((charmatrix A).adjugate i j).natDegree ≤ n - 2) := by
+  intro i j hne
+  have h_n_ge_2 : n ≥ 2 := by
+    by_contra h
+    push_neg at h
+    interval_cases n
+    · exact (NeZero.ne 0) rfl
+    · have : Subsingleton (Fin 1) := inferInstance
+      exact hne (Subsingleton.elim i j)
+  rw [adjugate_apply]
+  -- Strategy: expand det by row j, which has only one non-zero entry at column i
+  -- This gives: det = (Pi.single i 1)[j] * cofactor, where cofactor excludes row j and column i
+  -- The cofactor matrix has diagonal degrees: 0 at j (row deleted), 0 at i (column deleted),
+  -- and 1 at all other n-2 positions, giving total degree ≤ n-2
 
-  have charMatrix_offdiag_degree : ∀ k l : Fin n, k ≠ l → (charmatrix A k l).natDegree = 0 := by
-    intro k l hkl
-    rw [charmatrix_apply_ne _ _ _ hkl]
-    calc (-Polynomial.C (A k l)).natDegree
-        = (Polynomial.C (A k l)).natDegree := Polynomial.natDegree_neg _
-        _ = 0 := Polynomial.natDegree_C _
+  have h_expand_by_row : ((charmatrix A).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
+    -- Mathematical argument (cofactor expansion):
+    -- 1. Row j of the updated matrix is Pi.single i 1 = [0,...,0,1,0,...,0] with 1 at position i
+    -- 2. Expanding det by row j: det = ∑_k (-1)^(j+k) * M[j,k] * minor(j,k)
+    -- 3. Since M[j,k] = 0 for all k ≠ i, only the k=i term survives
+    -- 4. det = (-1)^(j+i) * 1 * minor(j,i) where minor(j,i) is the (n-1)×(n-1) determinant
+    --    with row j and column i deleted
+    -- 5. The minor matrix has:
+    --    - Diagonal entries from charmatrix, except positions j and i are removed
+    --    - So (n-2) diagonal entries of degree 1, rest are degree 0
+    -- 6. By det_degree_le_sum_degrees on the minor: deg(minor) ≤ n-2
+    -- 7. Therefore: deg(det) = deg(minor) ≤ n-2
+    --
+    -- To formalize this, we need either:
+    -- - A version of det_succ_row that works with our index types
+    -- - Or a direct minor/cofactor lemma
+    -- - Or massage the types to use Fin (n-1).succ ≃ Fin n
 
-  calc ∑ i' : {x : Fin n // x ≠ j}, ∑ j' : {x : Fin n // x ≠ i}, (charmatrix A i'.val j'.val).natDegree
-      = ∑ i' : {x : Fin n // x ≠ j}, (∑ j' : {x : Fin n // x ≠ i},
-          if i'.val = j'.val then 1 else 0) := by
-        congr 1; ext i'; congr 1; ext j'
-        by_cases h : i'.val = j'.val
-        · rw [if_pos h, h]
-          exact charMatrix_diag_degree j'.val
-        · rw [if_neg h]
-          exact charMatrix_offdiag_degree i'.val j'.val h
-      _ = ∑ i' : {x : Fin n // x ≠ j}, (if i'.val ≠ i then 1 else 0) := by
-        congr 1; ext i'
-        by_cases hi' : i'.val = i
-        · have : ¬(i'.val ≠ i) := not_not.mpr hi'
-          rw [if_neg this]
-          apply Finset.sum_eq_zero
-          intro j' _
-          rw [hi', if_neg (ne_comm.mp j'.property)]
-        · rw [if_pos hi']
-          trans (if i'.val = i'.val then (1 : ℕ) else 0)
-          · have : (⟨i'.val, hi'⟩ : {x : Fin n // x ≠ i}) ∈ (Finset.univ : Finset {x : Fin n // x ≠ i}) := Finset.mem_univ _
-            refine Finset.sum_eq_single_of_mem (⟨i'.val, hi'⟩ : {x : Fin n // x ≠ i}) this ?_
-            intro d _ hd
-            have h : i'.val ≠ d.val := by
-              intro h
-              apply hd
-              ext
-              exact congrArg Fin.val (id (Eq.symm h))
-            simp [h]
-          · simp
-      _ = n - 2 := by
-        classical
-        have card_subtype : Fintype.card {x : Fin n // x ≠ j} = n - 1 := by
-          calc Fintype.card {x : Fin n // x ≠ j}
-            = Fintype.card (Fin n) - 1 := by simp [Fintype.card_subtype_compl]
-            _ = n - 1 := by simp [Fintype.card_fin]
-        have h_key : (∑ i' : {x : Fin n // x ≠ j}, if i'.val ≠ i then 1 else 0 : ℕ) =
-                     Fintype.card {x : Fin n // x ≠ j} - 1 := by
-          change (Finset.univ : Finset {x : Fin n // x ≠ j}).sum (fun i' => if i'.val ≠ i then 1 else 0) =
-                 Fintype.card {x : Fin n // x ≠ j} - 1
-          have h_compl : ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => ¬(x.val ≠ i))) =
-                        {⟨i, hij⟩} := by
-            ext ⟨x, hx⟩
-            simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton, Subtype.mk.injEq]
-            tauto
-          have h_compl_card : ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => ¬(x.val ≠ i))).card = 1 := by
-            rw [h_compl]; simp
-          have h_ne_count : ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => x.val ≠ i)).card =
-                           (Finset.univ : Finset {x : Fin n // x ≠ j}).card - 1 := by
-            have partition_eq : ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => x.val ≠ i)) ∪
-                                ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => ¬(x.val ≠ i))) =
-                                (Finset.univ : Finset {x : Fin n // x ≠ j}) := by
-              ext a; simp [Finset.mem_filter]; tauto
-            have card_eq : ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => x.val ≠ i)).card +
-                           ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => ¬(x.val ≠ i))).card =
-                           (Finset.univ : Finset {x : Fin n // x ≠ j}).card := by
-              have h_disj : Disjoint ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => x.val ≠ i))
-                                     ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => ¬(x.val ≠ i))) :=
-                Finset.disjoint_left.mpr fun a ha hb => by
-                  simp only [Finset.mem_filter, Finset.mem_univ, true_and] at ha hb
-                  exact hb ha
-              rw [← Finset.card_union_of_disjoint h_disj, partition_eq]
-            rw [h_compl_card] at card_eq
-            omega
-          trans ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter (fun x => x.val ≠ i)).card
-          · have eq1 : ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter fun x => x.val ≠ i).sum (fun _ => 1) =
-                       ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter fun x => x.val ≠ i).card := by
-              simp [Finset.sum_const]
-            have eq2 : (Finset.univ : Finset {x : Fin n // x ≠ j}).sum (fun i' => if i'.val ≠ i then 1 else 0) =
-                       ((Finset.univ : Finset {x : Fin n // x ≠ j}).filter fun x => x.val ≠ i).sum (fun _ => 1) := by
-              simp only [Finset.sum_ite, Finset.sum_const, nsmul_one]
-              simp
-            rw [eq2, eq1]
-          · exact h_ne_count
-        rw [h_key, card_subtype]; rfl
+    obtain ⟨n', hn'⟩ := Nat.exists_eq_succ_of_ne_zero (NeZero.ne n)
+    subst hn'
+    rw [Matrix.det_succ_row _ j, Matrix.updateRow_self]
+    rw [Finset.sum_eq_single i]
+    · rw [Pi.single_eq_same]
+      simp only [mul_one]
+      trans ((-1 : ℤ[X]) ^ (j + i : ℕ)).natDegree +
+            (((charmatrix A).updateRow j (Pi.single i 1)).submatrix j.succAbove i.succAbove).det.natDegree
+      · apply natDegree_mul_le
+      trans 0 + (((charmatrix A).updateRow j (Pi.single i 1)).submatrix j.succAbove i.succAbove).det.natDegree
+      · gcongr
+        have : ((-1 : ℤ[X]) ^ (j + i : ℕ)) = (-1) ^ (j + i : ℕ) := by rfl
+        rw [this, natDegree_pow]
+        norm_num
+      simp only [zero_add]
+      have h_submatrix_bound : (((charmatrix A).updateRow j (Pi.single i 1)).submatrix j.succAbove i.succAbove).det.natDegree ≤ n' - 1 := by
+        trans (∑ k, ∑ l, (((charmatrix A).updateRow j (Pi.single i 1)).submatrix j.succAbove i.succAbove l k).natDegree)
+        · apply det_degree_le_sum_degrees
+        have h_bound_sum : ∑ k, ∑ l, (((charmatrix A).updateRow j (Pi.single i 1)).submatrix j.succAbove i.succAbove l k).natDegree ≤ n' - 1 := by
+          -- Key insight: count pairs (k,l) where j.succAbove k = i.succAbove l (diagonal in charmatrix)
+          -- Note: submatrix l k accesses original matrix at row j.succAbove l, column i.succAbove k
+          trans (∑ k : Fin n', ∑ l : Fin n', if j.succAbove l = i.succAbove k then 1 else 0)
+          · apply Finset.sum_le_sum
+            intro k _
+            apply Finset.sum_le_sum
+            intro l _
+            simp only [Matrix.submatrix_apply]
+            -- submatrix at (l,k) corresponds to original matrix at (j.succAbove l, i.succAbove k)
+            have hrow_not_j : j.succAbove l ≠ j := Fin.succAbove_ne j l
+            rw [Matrix.updateRow_apply, if_neg hrow_not_j]
+            by_cases h_diag : j.succAbove l = i.succAbove k
+            · -- Diagonal in charmatrix: degree = 1
+              unfold charmatrix
+              rw [h_diag]
+              simp only [Matrix.diagonal_apply_eq, Matrix.sub_apply, Matrix.scalar_apply]
+              calc (Polynomial.X - Polynomial.C (A (i.succAbove k) (i.succAbove k))).natDegree
+                _ = 1 := Polynomial.natDegree_X_sub_C _
+                _ ≤ 1 := le_refl _
+            · -- Off-diagonal in charmatrix: degree = 0
+              unfold charmatrix
+              simp [Matrix.diagonal_apply_ne _ h_diag, Matrix.sub_apply, Matrix.scalar_apply]
+          -- Now count: how many pairs (k,l) satisfy j.succAbove l = i.succAbove k?
+          -- Answer: n' - 1 (one for each value in the range intersection)
+          have h_count_pairs : (∑ k : Fin n', ∑ l : Fin n', if j.succAbove l = i.succAbove k then 1 else 0 : ℕ) = n' - 1 := by
+            -- The pairs where they're equal correspond to values in both ranges
+            -- Range of j.succAbove: Fin(n'+1) \ {j}
+            -- Range of i.succAbove: Fin(n'+1) \ {i}
+            -- Intersection: Fin(n'+1) \ {i,j}, which has size n'+1-2 = n'-1
+            -- For each value v in the intersection, there's exactly one l with j.succAbove l = v
+            -- and exactly one k with i.succAbove k = v, giving one pair (k,l).
+            -- Strategy: collapse the inner sum - for each k, at most one l matches
+            calc (∑ k : Fin n', ∑ l : Fin n', if j.succAbove l = i.succAbove k then 1 else 0)
+              _ = ∑ k : Fin n', (Finset.filter (fun l => j.succAbove l = i.succAbove k) Finset.univ).card := by
+                congr 1
+                ext k
+                trans (∑ l ∈ Finset.filter (fun l => j.succAbove l = i.succAbove k) Finset.univ, (1 : ℕ))
+                · rw [← Finset.sum_filter]
+                · rw [Finset.sum_const, Nat.smul_one_eq_cast, Nat.cast_id]
+              _ = ∑ k : Fin n', if i.succAbove k ≠ j then 1 else 0 := by
+                congr 1
+                ext k
+                by_cases h : i.succAbove k = j
+                · rw [if_neg (not_not.mpr h)]
+                  have : Finset.filter (fun l => j.succAbove l = i.succAbove k) Finset.univ = ∅ := by
+                    ext l
+                    simp [h, Fin.succAbove_ne]
+                  rw [this, Finset.card_empty]
+                · rw [if_pos h]
+                  have hex : ∃ l, j.succAbove l = i.succAbove k := by
+                    by_cases hlt : i.succAbove k < j
+                    · have h_ne_last : i.succAbove k ≠ Fin.last n' := by
+                        intro heq
+                        rw [heq] at hlt
+                        simp [Fin.lt_iff_val_lt_val, Fin.val_last] at hlt
+                        omega
+                      use (i.succAbove k).castPred h_ne_last
+                      rw [Fin.succAbove_of_castSucc_lt]
+                      · simp [Fin.castSucc_castPred]
+                      · simp [Fin.castSucc_castPred]
+                        exact hlt
+                    · push_neg at hlt
+                      have h_ne_zero : i.succAbove k ≠ 0 := by
+                        intro heq
+                        rw [heq] at h hlt
+                        simp at hlt
+                        omega
+                      use (i.succAbove k).pred h_ne_zero
+                      rw [Fin.succAbove_of_le_castSucc]
+                      · simp [Fin.succ_pred]
+                      · have : i.succAbove k = ((i.succAbove k).pred h_ne_zero).succ := by simp [Fin.succ_pred]
+                        rw [this] at hlt
+                        simp [Fin.le_castSucc_iff]
+                        omega
+                  obtain ⟨l, hl⟩ := hex
+                  rw [Finset.card_eq_one]
+                  use l
+                  ext l'
+                  simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
+                  constructor
+                  · intro heq
+                    have : j.succAbove l' = j.succAbove l := by rw [heq, hl]
+                    exact Fin.succAbove_right_inj.mp this
+                  · intro; subst l'; exact hl
+              _ = Finset.card (Finset.filter (fun k => i.succAbove k ≠ j) Finset.univ) := by
+                trans (∑ k ∈ Finset.filter (fun k => i.succAbove k ≠ j) Finset.univ, (1 : ℕ))
+                · rw [← Finset.sum_filter]
+                · rw [Finset.sum_const, Nat.smul_one_eq_cast, Nat.cast_id]
+              _ = n' - 1 := by
+                -- Range of i.succAbove is Fin(n'+1) \ {i}
+                -- Since i ≠ j, j is in this range, so there's exactly one k with i.succAbove k = j
+                -- Therefore, {k | i.succAbove k ≠ j} has cardinality n' - 1
+                have : Finset.filter (fun k => i.succAbove k ≠ j) Finset.univ =
+                       Finset.univ \ Finset.filter (fun k => i.succAbove k = j) Finset.univ := by
+                  ext k
+                  simp
+                rw [this, Finset.card_sdiff]
+                · simp [Finset.card_univ, Fintype.card_fin]
+                  -- The key is that succAbove i is a bijection from Fin n' to Fin(n'+1) \ {i}
+                  -- Since j ≠ i, there exists exactly one k such that i.succAbove k = j
+                  have hcard : (Finset.filter (fun k => i.succAbove k = j) Finset.univ).card = 1 := by
+                    rw [Finset.card_eq_one]
+                    -- First, show existence: j ≠ i, so j is in range of i.succAbove
+                    have hex : ∃ k, i.succAbove k = j := by
+                      by_cases hlt : j < i
+                      · -- j < i, so we can use castPred
+                        have h_ne_last : j ≠ Fin.last n' := by
+                          intro heq
+                          rw [heq] at hlt
+                          have : i.val ≤ n' := Fin.is_le i
+                          have : (Fin.last n').val = n' := Fin.val_last n'
+                          omega
+                        use j.castPred h_ne_last
+                        rw [Fin.succAbove_of_castSucc_lt]
+                        · simp [Fin.castSucc_castPred]
+                        · simp [Fin.castSucc_castPred]
+                          exact hlt
+                      · -- j ≥ i and j ≠ i, so j > i
+                        push_neg at hlt
+                        have h_ne_i : j ≠ i := hne.symm
+                        have h_gt : i < j := by
+                          cases Fin.lt_or_eq_of_le hlt with
+                          | inl h => exact h
+                          | inr h => exact absurd h.symm h_ne_i
+                        have h_ne_zero : j ≠ 0 := by
+                          intro heq
+                          rw [heq] at h_gt
+                          exact Nat.not_lt_zero i.val h_gt
+                        use j.pred h_ne_zero
+                        rw [Fin.succAbove_of_le_castSucc]
+                        · simp [Fin.succ_pred]
+                        · have : j = (j.pred h_ne_zero).succ := by simp [Fin.succ_pred]
+                          rw [this] at hlt
+                          simp [Fin.le_castSucc_iff]
+                          omega
+                    obtain ⟨k, hk⟩ := hex
+                    use k
+                    ext k'
+                    simp
+                    constructor
+                    · intro hk'
+                      -- succAbove is injective
+                      exact Fin.succAbove_right_inj.mp (hk'.trans hk.symm)
+                    · intro; subst k'; exact hk
+                  rw [hcard]
+          rw [h_count_pairs]
+        exact h_bound_sum
+      calc (((charmatrix A).updateRow j (Pi.single i 1)).submatrix j.succAbove i.succAbove).det.natDegree
+        _ ≤ n' - 1 := h_submatrix_bound
+        _ = n'.succ - 2 := by omega
+    · intro k _ hk
+      simp only [mul_assoc, mul_eq_zero]
+      right
+      left
+      simp [hk]
+    · intro hi
+      exact absurd (Finset.mem_univ i) hi
+  exact h_expand_by_row
+
 
 /-
 Polynomial entries of the adjugate matrix
@@ -304,7 +421,73 @@ lemma adj_poly {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
       (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).det := by
     intro M k
     rw [← Matrix.adjugate_apply M k k]
-    sorry
+    -- Need to show: adjugate M k k = det of submatrix with row k and column k removed
+    -- We'll use the fact that both index schemes give the same submatrix
+    obtain ⟨n', hn'⟩ := Nat.exists_eq_succ_of_ne_zero (NeZero.ne n)
+    subst hn'
+    -- Now we're working with Fin (n' + 1)
+    rw [Matrix.adjugate_fin_succ_eq_det_submatrix]
+    -- For diagonal entry k k, we have (-1)^(k+k) = (-1)^(2k) = 1
+    have : ((-1 : ℤ[X]) ^ (k + k : ℕ)) = 1 := by
+      rw [← two_mul]
+      simp [pow_mul]
+    rw [this, one_mul]
+    let inv_fun : {x // x ≠ k} → Fin n' := fun ⟨x, hx⟩ =>
+      if h : x < k then x.castPred (Fin.ne_last_of_lt h)
+      else x.pred (by
+        have : k ≤ x := Fin.not_lt.mp h
+        cases Fin.lt_or_eq_of_le this with
+        | inl h' => exact Fin.ne_zero_of_lt h'
+        | inr h' => exact absurd h'.symm hx)
+    have h_left_inv : ∀ i, inv_fun ⟨k.succAbove i, Fin.succAbove_ne k i⟩ = i := by
+      intro i
+      unfold inv_fun
+      by_cases h : k.succAbove i < k
+      · dsimp
+        rw [dif_pos h]
+        unfold Fin.succAbove at h
+        split_ifs at h with hi
+        · simp only [Fin.succAbove, hi, ite_true]
+          exact Fin.castPred_castSucc
+        · exfalso
+          have h1 : k ≤ i.castSucc := Fin.not_lt.mp hi
+          have h2 : k ≤ i.succ := le_trans h1 (Fin.castSucc_lt_succ i).le
+          exact Fin.not_le.mpr h h2
+      · dsimp
+        rw [dif_neg h]
+        unfold Fin.succAbove
+        split_ifs with hi
+        · exfalso
+          have : i.castSucc < k := hi
+          have : k.succAbove i < k := by simp [Fin.succAbove, hi]
+          exact h this
+        · exact Fin.pred_succ i
+    have h_right_inv : ∀ x : {y // y ≠ k}, ⟨k.succAbove (inv_fun x), Fin.succAbove_ne k (inv_fun x)⟩ = x := by
+      intro ⟨x, hx⟩
+      simp only [Subtype.mk.injEq]
+      unfold inv_fun
+      by_cases h : x < k
+      · dsimp
+        rw [dif_pos h]
+        exact Fin.succAbove_castPred_of_lt _ _ h
+      · dsimp
+        rw [dif_neg h]
+        have hk : k < x := by
+          cases Fin.lt_or_eq_of_le (Fin.not_lt.mp h) with
+          | inl h => exact h
+          | inr h => exact absurd h.symm hx
+        exact Fin.succAbove_pred_of_lt _ _ hk
+    let e : Fin n' ≃ {x // x ≠ k} := {
+      toFun := fun i => ⟨k.succAbove i, Fin.succAbove_ne k i⟩
+      invFun := inv_fun
+      left_inv := h_left_inv
+      right_inv := h_right_inv
+    }
+    have h_submatrix_eq : M.submatrix k.succAbove k.succAbove =
+        (M.submatrix (fun (i : {x // x ≠ k}) => i.val) (fun (j : {x // x ≠ k}) => j.val)).reindex e.symm e.symm := by
+      ext i j
+      simp [Matrix.submatrix_apply, Matrix.reindex_apply, e]
+    rw [h_submatrix_eq, Matrix.det_reindex_self]
 
   have h_card_complement : ∀ (k : Fin n), Fintype.card {x : Fin n // x ≠ k} = n - 1 := by
     intro k
@@ -331,52 +514,8 @@ lemma adj_poly {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
         exact Subtype.ext heq
       simp [h, hval]
 
-  have h_det_offdiag_bound : ∀ (M : Matrix (Fin n) (Fin n) ℤ) (i j : Fin n) (hij : i ≠ j),
-      ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree ≤ n - 2 := by
-    intro M i j hij
-    have h_deg : ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree ≤
-        ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := by
-      convert det_degree_le_sum_degrees ((charmatrix M).updateRow j (Pi.single i 1))
-    have h_row_j : ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col j).natDegree = 0 := by
-      apply Finset.sum_eq_zero
-      intro col _
-      rw [Matrix.updateRow_apply]
-      split_ifs with h
-      · simp only [Pi.single_apply]
-        by_cases hij' : j = i
-        · rw [if_pos hij', Polynomial.natDegree_one]
-        · rw [if_neg hij', Polynomial.natDegree_zero]
-      · simp only [Matrix.charmatrix_apply, Matrix.diagonal_apply]
-        rw [if_neg h]
-        norm_num [Polynomial.natDegree_C]
-    have h_row_i : ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree = 0 := by
-      refine Eq.symm (Nat.eq_of_beq_eq_true ?_)
-      simp
-      sorry
-    have h_other_rows : ∀ r : Fin n, r ≠ j → r ≠ i →
-        ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col r).natDegree ≤ 1 := by
-      intro r hrj hri
-      sorry
-    have h_total_bound : ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree ≤ n - 2 := by
-      have h_split : ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree =
-          (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col j).natDegree) +
-          (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree) +
-          ∑ row ∈ Finset.univ.filter (fun r => r ≠ j ∧ r ≠ i), ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := by
-        sorry
-      rw [h_split]
-      calc (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col j).natDegree) +
-           (∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col i).natDegree) +
-           ∑ row ∈ Finset.univ.filter (fun r => r ≠ j ∧ r ≠ i), ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree
-        _ ≤ 0 + 0 + (n - 2) * 1 := by
-            apply Nat.add_le_add
-            apply Nat.add_le_add
-            · rw [h_row_j]
-            · exact Nat.le_zero.mpr h_row_i
-            · sorry
-        _ = n - 2 := by omega
-    calc ((charmatrix M).updateRow j (Pi.single i 1)).det.natDegree
-      _ ≤ ∑ row : Fin n, ∑ col : Fin n, ((charmatrix M).updateRow j (Pi.single i 1) col row).natDegree := h_deg
-      _ ≤ n - 2 := h_total_bound
+  -- Off-diagonal case is handled by adj_offdiag_sum_degrees_bound
+  -- Which proves the bound via counting diagonal entries in the submatrix
 
   by_cases hij : i = j
   · -- Case: i = j (Diagonal case: monic of degree n-1)
@@ -409,7 +548,7 @@ lemma adj_poly {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
       omega
     haveI : Nontrivial (Fin n) := by
       rw [← h1 n] at hn
-      rw [nontrivial_iff]
+      rw [_root_.nontrivial_iff]
       use 0, 1
       simp
       exact Nat.ne_of_gt (Nat.lt_of_lt_of_eq hn (h1 n))
@@ -451,9 +590,9 @@ lemma adj_poly {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
     · intro h_eq
       exact absurd h_eq hij
     · intro _
-      rw [adjugate_apply]
-      -- Use the helper lemma that directly gives us the bound
-      exact h_det_offdiag_bound A i j hij
+      -- Use adj_offdiag_sum_degrees_bound which proves the bound via
+      -- counting diagonal entries in the submatrix after row/column deletion
+      exact adj_offdiag_sum_degrees_bound A i j hij
 
 def coeff_bound (poly : Polynomial ℤ) : ℤ :=
   poly.support.sum (fun i => |poly.coeff i|)
@@ -463,30 +602,43 @@ Polynomial with positive leading coefficient is eventually positive
 If p ∈ ℤ[x] has positive leading coefficient, then p(n) > 0 for all n greater than polynomial_bound p.
 -/
 lemma polynomial_positive (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) (n : ℤ) :
-    n > coeff_bound poly → n > 0 ∧ (poly.eval n) > 0 := by
+    n ≥ coeff_bound poly → n > 0 ∧ (poly.eval n) > 0 := by
   have poly_nonzero : poly ≠ 0 := by
-
     intro H; simp [H] at h
 
   let d := poly.natDegree
   let a := poly.leadingCoeff
 
   intros hn
+
+  -- First, establish n ≥ coeff_bound poly ≥ a ≥ 1 > 0
+  have a_ge_one : a ≥ 1 := by omega
+  have coeff_bound_ge_a : coeff_bound poly ≥ a := by
+    simp [coeff_bound, a]
+    have leading_nonzero : poly.coeff poly.natDegree ≠ 0 := by
+      intro h_eq
+      have : poly.leadingCoeff = 0 := by simp [Polynomial.leadingCoeff, h_eq]
+      omega
+    have leading_in_support : poly.natDegree ∈ poly.support := by
+      rw [Polynomial.mem_support_iff]; exact leading_nonzero
+    calc ∑ i ∈ poly.support, |poly.coeff i|
+        ≥ |poly.coeff poly.natDegree| := by
+          apply Finset.single_le_sum (f := fun i => |poly.coeff i|)
+          · intro i _; apply abs_nonneg
+          · exact leading_in_support
+      _ = poly.leadingCoeff := abs_of_pos h
   have hn_pos : n > 0 := by
-    have : coeff_bound poly ≥ 0 := by
-      simp [coeff_bound]
-      have : 0 ≤ 2 := by norm_num
-      have : 0 ≤ ∑ i ∈ poly.support, |poly.coeff i| := by apply sum_nonneg; intro i _; apply abs_nonneg
-      linarith
-    linarith
+    calc n ≥ coeff_bound poly := hn
+      _ ≥ a := coeff_bound_ge_a
+      _ ≥ 1 := a_ge_one
+      _ > 0 := by norm_num
 
   constructor
+  · exact hn_pos
 
-  exact hn_pos
-
+  -- Case d = 0
   by_cases hd : d = 0
   ·
-    norm_num
     have : poly.eval n = a := by
       have hp : poly = C (poly.coeff 0) := eq_C_of_natDegree_eq_zero hd
       rw [hp, eval_C]
@@ -496,147 +648,180 @@ lemma polynomial_positive (poly : Polynomial ℤ) (h : poly.leadingCoeff > 0) (n
     rw [this]
     exact h
 
+  -- Case d ≥ 1
   have d_pos : 0 < d := Nat.pos_of_ne_zero hd
-  let B : ℤ := ∑ k ∈ range d, |poly.coeff k|
-  let n₀ := max 1 B
-  have hn₀ : n₀ ≥ 1 := by
-    unfold n₀
-    omega
-  have hn₀_pos : n₀ > 0 := by linarith
-
-  have hn_gt_n0 : n > n₀ := by
-    have bound_ge_n0 : coeff_bound poly ≥ n₀ := by
-      -- coeff_bound poly includes at least the leading coefficient
-      -- Since a = leadingCoeff > 0 and is an integer, a ≥ 1
-      -- Also B ≥ 0 as a sum of absolute values
-      -- So coeff_bound poly ≥ a ≥ 1
-      -- And n₀ = max 1 B + 1, so if coeff_bound ≥ a + B ≥ 1 + B ≥ max 1 B + 1, we're done
-      have a_ge_one : a ≥ 1 := by omega
-      have coeff_bound_ge_a : coeff_bound poly ≥ a := by
-        simp [coeff_bound, a]
-        have leading_nonzero : poly.coeff poly.natDegree ≠ 0 := by
-          intro h_eq
-          have : poly.leadingCoeff = 0 := by simp [Polynomial.leadingCoeff, h_eq]
-          omega
-        have leading_in_support : poly.natDegree ∈ poly.support := by
-          rw [Polynomial.mem_support_iff]; exact leading_nonzero
-        calc ∑ i ∈ poly.support, |poly.coeff i|
-            ≥ |poly.coeff poly.natDegree| := by
-              apply Finset.single_le_sum (f := fun i => |poly.coeff i|)
-              · intro i _; apply abs_nonneg
-              · exact leading_in_support
-          _ = poly.leadingCoeff := abs_of_pos h
-      refine Int.max_le.mpr ?_
-      constructor
-      · exact Int.le_trans h coeff_bound_ge_a
-      · -- Need to show: B ≤ coeff_bound poly
-        -- B = ∑ k ∈ range d, |poly.coeff k|
-        -- coeff_bound poly = ∑ i ∈ poly.support, |poly.coeff i|
-        -- Key insight: ∑ k ∈ range d, |poly.coeff k| = ∑ k ∈ (range d ∩ support), |poly.coeff k|
-        -- because |poly.coeff k| = 0 when k ∉ support
-        -- And (range d ∩ support) ⊆ support, so the sum over range d ∩ support ≤ sum over support
-        simp [B, coeff_bound]
-        calc ∑ k ∈ range d, |poly.coeff k|
-            = ∑ k ∈ (range d ∩ poly.support), |poly.coeff k| := by
-              symm
-              apply Finset.sum_subset
-              · exact Finset.inter_subset_left
-              · intro k hk_in_range hk_not_in_inter
-                -- k ∈ range d but k ∉ range d ∩ support
-                have k_not_in_support : k ∉ poly.support := by
-                  intro h_in
-                  apply hk_not_in_inter
-                  simp [Finset.mem_inter, hk_in_range, h_in]
-                have : poly.coeff k = 0 := by
-                  simp [Polynomial.mem_support_iff] at k_not_in_support
-                  exact k_not_in_support
-                simp [this]
-          _ ≤ ∑ i ∈ poly.support, |poly.coeff i| := by
-              apply Finset.sum_le_sum_of_subset_of_nonneg
-              · exact Finset.inter_subset_right
-              · intros; apply abs_nonneg
-    linarith
-  have hn₀ : n₀ > 0 := by linarith
-
-  have n_ge_two : n ≥ 2 := by omega
   have n_ge_one : n ≥ 1 := by omega
-  have n_pos : n > 0 := by omega
 
-  -- For n ≥ 1, bound the remainder |∑_{k<d} poly.coeff k · n^k| ≤ B · n^(d-1)
-  have r_bound : |∑ k ∈ range d, poly.coeff k * n ^ k| ≤ B * n ^ (d - 1) := by
-    -- For each k < d, |poly.coeff k * n^k| = |poly.coeff k| * n^k ≤ |poly.coeff k| * n^(d-1) because n ≥ 1 and k ≤ d-1
-    calc
-      |∑ k ∈ range d, poly.coeff k * n ^ k| ≤ ∑ k ∈ range d, |poly.coeff k * n ^ k| := by
-        exact abs_sum_le_sum_abs (fun i => poly.coeff i * n ^ i) (range d)
-      _ = ∑ k ∈ range d, |poly.coeff k| * |n ^ k| := by
-        congr 1
-        ext k
-        rw [abs_mul, abs_pow]
-      _ = ∑ k ∈ range d, |poly.coeff k| * n ^ k := by
-        -- n ≥ 1 > 0 so |n| = n and |n^k| = n^k
-        have n_nonneg : 0 ≤ n := by omega
-        have abs_n : |n| = n := abs_of_nonneg n_nonneg
-        congr 1
-        ext k
-        rw [show |n ^ k| = |n| ^ k from abs_pow n k]
-        rw [abs_n]
-      _ ≤ ∑ k ∈ range d, |poly.coeff k| * n ^ (d - 1) := by
-        apply Finset.sum_le_sum
-        intros k hk
-        have k_le : k ∈ range d → k ≤ d - 1 := by
-          unfold range
-          simp
-          exact fun a => Nat.le_sub_one_of_lt a
-        have pow_le : k ∈ range d → n^k ≤ n^(d - 1) := by
-          bound
-        bound
-      _ = B * n ^ (d - 1) := by
-        simp [B, ← sum_mul]
+  -- Define B = coeff_bound poly - a (the sum of absolute values of non-leading coefficients)
+  let B : ℤ := coeff_bound poly - a
+  -- Define r = poly(n) - a·n^d (the remainder after subtracting the leading term)
+  let r : ℤ := poly.eval n - a * n^d
 
-  have poly_split : poly.eval n = a * n ^ d + (∑ k ∈ range d, poly.coeff k * n ^ k) := by
-    rw [eval_eq_sum_range]
-    rw [Finset.sum_range_succ]
-    rw [add_comm]
-    congr 1
+  have B_nonneg : B ≥ 0 := by
+    simp only [B]
+    omega
 
-  have h_ineq : poly.eval n ≥ a * n ^ d - B * n ^ (d - 1) := by
-    calc poly.eval n
-        = a * n ^ d + (∑ k ∈ range d, poly.coeff k * n ^ k) := poly_split
-      _ ≥ a * n ^ d - |(∑ k ∈ range d, poly.coeff k * n ^ k)| := by
-          have : ∑ k ∈ range d, poly.coeff k * n ^ k ≥ -(|(∑ k ∈ range d, poly.coeff k * n ^ k)|) := neg_abs_le _
-          omega
-      _ ≥ a * n ^ d - B * n ^ (d - 1) := by
-          have : |(∑ k ∈ range d, poly.coeff k * n ^ k)| ≤ B * n ^ (d - 1) := r_bound
-          omega
-
-  have ring_eq : a * n ^ d - B * n ^ (d - 1) = n ^ (d - 1) * (a * n - B) := by
-    have : n ^ d = n ^ (d - 1) * n := by
-      rw [← pow_succ]
-      congr 1
-      omega
-    rw [this]
+  -- Split poly.eval n = a·n^d + r(n)
+  have poly_split : poly.eval n = a * n^d + r := by
+    simp only [r]
     ring
 
+  -- Key lemma: the remainder bound |r(n)| ≤ B·n^{d-1}
+  have r_bound : |r| ≤ B * n^(d-1) := by
+    -- For n ≥ 1, |∑_{i<d} coeff_i·n^i| ≤ (∑_{i<d} |coeff_i|)·n^{d-1} = B·n^{d-1}
+    calc |r|
+    _ = |poly.eval n - a * n^d| := by simp only [r]
+    _ = |a * n^d + ∑ i ∈ range d, poly.coeff i * n^i - a * n^d| := by
+      rw [eval_eq_sum_range]
+      congr 1
+      rw [sum_range_succ]
+      simp only [d, a]
+      have : poly.leadingCoeff = poly.coeff poly.natDegree := rfl
+      rw [this]
+      ring
+    _ = |∑ i ∈ range d, poly.coeff i * n^i| := by
+      congr 1
+      ring
+    _ ≤ ∑ i ∈ range d, |poly.coeff i * n^i| := by exact abs_sum_le_sum_abs (fun i => poly.coeff i * n ^ i) (range d)
+    _ ≤ ∑ i ∈ range d, |poly.coeff i| * n^(d-1) := by
+      refine sum_le_sum ?_
+      intro i hi
+      rw [mem_range] at hi
+      rw [abs_mul]
+      apply mul_le_mul_of_nonneg_left _ (abs_nonneg _)
+      have hi_le : (i : ℤ) ≤ d - 1 := by omega
+      have n_abs : |n| = n := abs_of_pos hn_pos
+      rw [abs_pow, n_abs]
+      by_cases h_i : i ≤ d - 1
+      · have : n ^ i ≤ n ^ (d - 1) := by
+          exact pow_le_pow_right₀ hn_pos h_i
+        simp at this
+        exact this
+      · omega
+    _ = (∑ i ∈ range d, |poly.coeff i|) * n^(d-1) := by
+      rw [← sum_mul]
+    _ = B * n^(d-1) := by
+      congr 1
+      simp only [B, coeff_bound]
+      -- Show that ∑ i ∈ range d, |poly.coeff i| = ∑ i ∈ poly.support, |poly.coeff i| - |poly.coeff d|
+      have sum_range_eq : ∑ i ∈ range d, |poly.coeff i| = ∑ i ∈ range d ∩ poly.support, |poly.coeff i| := by
+        rw [← sum_inter_add_sum_diff (range d) poly.support (fun i => |poly.coeff i|)]
+        simp
+        apply sum_eq_zero
+        intro i hi
+        simp at hi
+        simp [hi.2]
+      rw [sum_range_eq]
+      -- Show poly.support splits into d and elements < d
+      have d_in_support : d ∈ poly.support := by
+        rw [Polynomial.mem_support_iff]
+        intro contra
+        simp [Polynomial.leadingCoeff, d, contra] at h
+      have filter_eq : poly.support.filter (· < d) = range d ∩ poly.support := by
+        ext i
+        simp [Polynomial.mem_support_iff]
+        exact And.comm
+      have support_split : ∑ i ∈ poly.support, |poly.coeff i| =
+          |poly.coeff d| + ∑ i ∈ poly.support.filter (· < d), |poly.coeff i| := by
+        conv_lhs => rw [← insert_erase d_in_support]
+        rw [sum_insert (notMem_erase d poly.support)]
+        congr 1
+        have erase_eq_filter : poly.support.erase d = poly.support.filter (· < d) := by
+          ext i
+          simp [Polynomial.mem_support_iff]
+          constructor
+          · intro ⟨hi_supp, hi_ne_d⟩
+            constructor
+            · exact hi_ne_d
+            · have : i ≤ d := Polynomial.le_natDegree_of_mem_supp _ (by rwa [Polynomial.mem_support_iff])
+              omega
+          · intro ⟨hi_supp, hi_lt⟩
+            constructor
+            · exact Nat.ne_of_lt hi_lt
+            · exact hi_supp
+        rw [erase_eq_filter]
+      rw [support_split, filter_eq]
+      simp [a]
+      ring_nf
+      have : poly.leadingCoeff = |poly.coeff d| := by
+        simp [d]
+        exact (abs_of_pos h).symm
+      omega
+
+  -- Main calculation following tex: p(n) = a·n^d + r(n) ≥ a·n^d - B·n^{d-1} = n^{d-1}(a·n - B) ≥ a·n - B
+  have key_ineq : poly.eval n ≥ a * n - B := by
+    calc poly.eval n
+        = a * n^d + r := poly_split
+      _ ≥ a * n^d - |r| := by
+          have : r ≥ -|r| := neg_abs_le _
+          omega
+      _ ≥ a * n^d - B * n^(d-1) := by linarith [r_bound]
+      _ = n^(d-1) * (a * n - B) := by
+          have h_pow : n^d = n^(d-1) * n := by
+            rw [← pow_succ]
+            congr 1
+            omega
+          rw [h_pow]
+          ring
+      _ ≥ a * n - B := by
+          -- For n ≥ 1, we have n^{d-1} ≥ 1
+          have pow_ge_one : n^(d-1) ≥ 1 := by
+            by_cases h_d1 : d = 1
+            · simp [h_d1]
+            · have d_minus_one_pos : d - 1 ≥ 1 := by omega
+              calc n^(d-1) ≥ n^1 := by
+                    have : (1 : ℤ) ≤ n := n_ge_one
+                    have : (1 : ℕ) ≤ d - 1 := by omega
+                    exact pow_le_pow_right₀ hn_pos this
+                _ = n := by ring
+                _ ≥ 1 := n_ge_one
+          -- For n ≥ coeff_bound and coeff_bound ≥ a, we have n ≥ a ≥ 1
+          -- So a*n ≥ a*coeff_bound = a*a + a*B ≥ a² + B (since a*B ≥ B when a ≥ 1)
+          -- Thus a*n - B ≥ a² ≥ 1 > 0
+          have h_nonneg : a * n - B ≥ 0 := by
+            have : a * n ≥ a * coeff_bound poly := by
+              apply mul_le_mul_of_nonneg_left hn
+              omega
+            calc a * n - B
+                ≥ a * coeff_bound poly - B := by omega
+              _ = a * (a + B) - B := by simp only [B]; ring
+              _ = a * a + B * (a - 1) := by ring
+              _ ≥ 0 := by
+                  have h1 : a * a ≥ 0 := by apply mul_nonneg <;> omega
+                  have h2 : B * (a - 1) ≥ 0 := by
+                    have : a - 1 ≥ 0 := by omega
+                    apply mul_nonneg B_nonneg this
+                  omega
+          calc n^(d-1) * (a * n - B)
+              ≥ 1 * (a * n - B) := by
+                apply mul_le_mul_of_nonneg_right pow_ge_one h_nonneg
+            _ = a * n - B := by ring
+
   calc poly.eval n
-      ≥ a * n ^ d - B * n ^ (d - 1) := h_ineq
-    _ = n ^ (d - 1) * (a * n - B) := ring_eq
-    _ > 0 := by
-        apply mul_pos
-        · -- n^(d-1) > 0 because n > 0
-          apply pow_pos
-          omega
-        · -- a*n - B > 0 because n > n₀ = max(1, B) + 1
-          -- So n > B + 1, hence a*n ≥ n > B + 1 > B (since a ≥ 1)
-          have : n > max 1 B := by omega
-          have n_gt_B : n > B := by omega
-          have a_ge_one : a ≥ 1 := by omega  -- a > 0 and a is an integer
-          have : a * n ≥ n := by
-            calc a * n ≥ 1 * n := by
-                  apply mul_le_mul_of_nonneg_right
-                  · omega
-                  · omega
-               _ = n := by ring
-          omega
+      ≥ a * n - B := key_ineq
+    _ ≥ a * coeff_bound poly - B := by
+        have a_nonneg : 0 ≤ a := by omega
+        have : a * n ≥ a * coeff_bound poly := by
+          apply mul_le_mul_of_nonneg_left hn a_nonneg
+        omega
+    _ = a * (a + B) - B := by simp only [B]; ring
+    _ = a * a + B * (a - 1) := by ring
+    _ ≥ a := by
+        have h1 : B * (a - 1) ≥ 0 := by
+          have : a - 1 ≥ 0 := by omega
+          have : B ≥ 0 := B_nonneg
+          apply mul_nonneg <;> omega
+        have h2 : a * a ≥ a := by
+          calc a * a = a * 1 + a * (a - 1) := by ring
+            _ ≥ a * 1 + 0 := by
+                have : a * (a - 1) ≥ 0 := by
+                  have : a - 1 ≥ 0 := by omega
+                  apply mul_nonneg <;> omega
+                omega
+            _ = a := by ring
+        omega
+    _ ≥ 1 := a_ge_one
+    _ > 0 := by norm_num
 
 /-
 Entries of M(x)v are strictly increasing for large x
@@ -849,7 +1034,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
       constructor
       · exact h_x₀_pos
       · intro x hx
-        have ⟨hx_pos, h_eval⟩ : x > 0 ∧ (p_i i).eval x > 0 := polynomial_positive (p_i i) h x hx
+        have ⟨hx_pos, h_eval⟩ : x > 0 ∧ (p_i i).eval x > 0 := polynomial_positive (p_i i) h x (le_of_lt hx)
         rw [← y_is_poly i x] at h_eval
         linarith
     · -- If leadingCoeff ≤ 0
@@ -1058,7 +1243,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     constructor
     · exact h_x₀_pos
     · intro x hx
-      have ⟨hx_pos, h_eval⟩ : x > 0 ∧ diff_poly.eval x > 0 := polynomial_positive diff_poly h_lead_pos x hx
+      have ⟨hx_pos, h_eval⟩ : x > 0 ∧ diff_poly.eval x > 0 := polynomial_positive diff_poly h_lead_pos x (le_of_lt hx)
       rw [Polynomial.eval_sub] at h_eval
       have : (p_i j).eval x > (p_i i).eval x := by linarith
       rw [← y_is_poly j x, ← y_is_poly i x] at this
@@ -1193,7 +1378,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     constructor
     · exact h_x₀_pos
     · intro x hx
-      have ⟨hx_pos, h_eval⟩ : x > 0 ∧ diff_poly.eval x > 0 := polynomial_positive diff_poly h_lead_pos x hx
+      have ⟨hx_pos, h_eval⟩ : x > 0 ∧ diff_poly.eval x > 0 := polynomial_positive diff_poly h_lead_pos x (le_of_lt hx)
       rw [Polynomial.eval_sub] at h_eval
       have : p_m.eval x > (p_i i).eval x := by linarith
       rw [← m_is_poly x, ← y_is_poly i x] at this
@@ -1366,7 +1551,7 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
           · omega
         linarith
       omega
-    have ⟨_, h_eval⟩ := polynomial_positive p_m h_lead x this
+    have ⟨_, h_eval⟩ := polynomial_positive p_m h_lead x (le_of_lt this)
     rwa [← m_is_poly] at h_eval
 
   constructor
