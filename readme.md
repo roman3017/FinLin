@@ -1,6 +1,6 @@
 # Formal Verification with Lean4
 
-The main purpose of this repository is a formal verification of results showing that all functions on a finite sets are linear upon a suitable injective embedding:
+The main purpose of this repository is a formal verification of results showing that all functions on finite sets are linear upon a suitable injective embedding:
 
  - http://arxiv.org/abs/2510.20167
 
