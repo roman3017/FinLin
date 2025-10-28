@@ -148,7 +148,7 @@ $$p(n) = an^d + r(n) \geq an^d - Bn^{d-1} = n^{d-1}(an - B) \ge (a|p| - B) \ge |
 \lean{adj_poly_strict_increasing}
 \leanok
 \uses{lem:adj_poly,lem:polynomial_positive,lem:charmatrix_helpers}
-Let $M = (m_{ij}) = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x\cdot I - A$.
+Let $M = (m_{ij}) = M(x) = \operatorname{adj}(x I - A)$ be the adjugate of the characteristic matrix $x I - A$.
 Let $v = (1,2,\ldots,n)^T$ and $m = m(x) = \det(x I - A)$. Then for sufficiently large integer $x$:
 $$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
 \end{lemma}
@@ -198,7 +198,7 @@ $$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
 
 Since $m$ is monic of degree $n$, we can choose $x$ such that $x < m(x)$. This shows that $j$ is injective and $a \in \{0,1,\ldots,m-1\}$.
 
-Lemma \ref{lem:adj_eq} shows that $y_{f(i)} = x\cdot y_i - m\cdot v_i$ and hence $y_{f(i)} \equiv x\cdot y_i \pmod{m}$.
+Lemma \ref{lem:adj_eq} shows that $y_{f(i)} = x y_i - m v_i$ and hence $y_{f(i)} \equiv x y_i \pmod{m}$.
 
 Therefore, $j$ is a linear representation of $f$ with modulus $m$ and constant $a$.
 \end{proof}
