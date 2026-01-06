@@ -288,7 +288,7 @@ lemma adj_offdiag_sum_degrees_bound {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fi
                     · have h_ne_last : i.succAbove k ≠ Fin.last n' := by
                         intro heq
                         rw [heq] at hlt
-                        simp [Fin.lt_iff_val_lt_val, Fin.val_last] at hlt
+                        simp [Fin.lt_def, Fin.val_last] at hlt
                         omega
                       use (i.succAbove k).castPred h_ne_last
                       rw [Fin.succAbove_of_castSucc_lt]
@@ -451,7 +451,7 @@ lemma adj_poly {n : ℕ} [NeZero n] (A : Matrix (Fin n) (Fin n) ℤ) :
           exact Fin.castPred_castSucc
         · exfalso
           have h1 : k ≤ i.castSucc := Fin.not_lt.mp hi
-          have h2 : k ≤ i.succ := le_trans h1 (Fin.castSucc_lt_succ i).le
+          have h2 : k ≤ i.succ := le_trans h1 Fin.castSucc_lt_succ.le
           exact Fin.not_le.mpr h h2
       · dsimp
         rw [dif_neg h]
@@ -1645,193 +1645,187 @@ lemma adj_poly_strict_increasing {n : ℕ} [NeZero n] [h : Fact (n > 0)] (f : ZM
     have : x > det_bound i := by omega
     exact h_spec.2 x this
 
-/-
-Linear Representation Definition
-Let f: ℤ/nℤ → ℤ/nℤ be any function. A linear representation of f is an injective function
-j: ℤ/nℤ → ℤ/mℤ such that for all i∈ℤ/nℤ,
-j(f(i)) = a ⋅ j(i) in ℤ/mℤ,
-where m is a positive integer and a is a constant from ℤ/mℤ depending on f.
--/
-def has_linear_representation {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) : Prop :=
-  ∃ (m : ℕ) (_hm : m > 0) (a : ZMod m) (j : ZMod n → ZMod m),
-    Function.Injective j ∧
-    ∀ i : ZMod n, j (f i) = a * j i
 
 /-
-Main Theorem: Linear Representation of Functions
-Any function f: ℤ/nℤ → ℤ/nℤ has a linear representation.
+Lemma: Linear Representation with Parameter
+For any function f: ℤ/nℤ → ℤ/nℤ, there exists a threshold a₀ such that for any a ≥ a₀,
+we can construct a linear representation with multiplier a.
+
 Proof strategy:
-1. Use adj_poly_strict_increasing to get x₀ such that for x > x₀,
-   the entries y x i are strictly increasing and bounded by m x
-2. Choose an integer x > x₀ to get specific values
-3. Define j(i) = (y x i) mod (m x)
-4. Use adj_eq to show j(f(i)) ≡ x · j(i) (mod m x)
-5. Injectivity follows from strict ordering
+1. Use adj_poly_strict_increasing to get x₀ such that for x > x₀, entries are strictly ordered
+2. For any a ≥ x₀, we can use x = a to construct the representation
+3. Define j(i) = (y a i) mod (m a), where m a = det(aI - A)
+4. Use adj_eq to show j(f(i)) = a · j(i) mod m a
+5. Injectivity follows from strict ordering of y a i
 -/
-theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n → ZMod n) :
-    has_linear_representation f := by
-  -- Helper: Convert ZMod n to Fin n
-  let zmodToFin : ZMod n → Fin n := fun x => ⟨ZMod.val x, ZMod.val_lt x⟩
-
-  -- Get the bound from adj_poly_strict_increasing
-  have h_increasing := adj_poly_strict_increasing f
-  let A := func_matrix f
-  let v : Fin n → ℤ := fun i => i.val + 1  -- Use v = (1, 2, ..., n) instead of (0, 1, ..., n-1)
-  let M := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate
-  let y := fun (x : ℤ) => M x *ᵥ v
-  let m := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).det
-
-  obtain ⟨x₀, hx₀⟩ := h_increasing
-
-  -- Choose x = x₀ + 1 (or any x > x₀)
-  let x := x₀ + 1
-  have hx : x > x₀ := by omega
-  have ⟨m_pos, h_nonneg, h_strict, h_bound⟩ := hx₀ x hx
-
-  -- Define m_val = m x (the determinant at x)
-  let m_val := m x
-  -- We have m_val > 0 from adj_poly_strict_increasing
-
-  -- Convert to Nat for ZMod
-  let modulus : ℕ := m_val.natAbs
-  have modulus_pos : modulus > 0 := Int.natAbs_pos.mpr (ne_of_gt m_pos)
-
-  -- Define the injection j : ZMod n → ZMod modulus
-  -- j(i) = (y x i) mod modulus
-  let j : ZMod n → ZMod modulus := fun i =>
-    let i_fin := zmodToFin i
-    (y x i_fin : ZMod modulus)
-
-  use modulus, modulus_pos, (x : ZMod modulus), j
-
-  constructor
-  · -- Prove injectivity
-    intro i₁ i₂ h_eq
-    -- j i₁ = j i₂ means y x (zmodToFin i₁) ≡ y x (zmodToFin i₂) (mod m_val)
-    -- Since both are < m_val (by h_bound) and non-negative (by h_nonneg),
-    -- and they're congruent mod m_val, they must be equal
-    -- Then by strict ordering, i₁ = i₂
-
-    let i₁_fin := zmodToFin i₁
-    let i₂_fin := zmodToFin i₂
-
-    -- Both values are in [0, m_val)
-    have hy1_nonneg : y x i₁_fin ≥ 0 := h_nonneg i₁_fin
-    have hy2_nonneg : y x i₂_fin ≥ 0 := h_nonneg i₂_fin
-    have hy1_lt : y x i₁_fin < m_val := h_bound i₁_fin
-    have hy2_lt : y x i₂_fin < m_val := h_bound i₂_fin
-
-    -- From h_eq: (y x i₁_fin : ZMod modulus) = (y x i₂_fin : ZMod modulus)
-    -- Since 0 ≤ y x i₁_fin < m_val and 0 ≤ y x i₂_fin < m_val, this means y x i₁_fin = y x i₂_fin
-    have h_y_eq : y x i₁_fin = y x i₂_fin := by
-      -- Two integers in [0, m) that are equal mod m must be equal
-      -- modulus = m_val.natAbs, and m_val > 0
-      -- h_eq: (y x i₁_fin : ZMod modulus) = (y x i₂_fin : ZMod modulus)
-      -- This means: y x i₁_fin ≡ y x i₂_fin (mod modulus)
-      -- With bounds: 0 ≤ y x i₁_fin < m_val and 0 ≤ y x i₂_fin < m_val
-      -- And modulus = m_val.natAbs = m_val (since m_val > 0)
-      -- So both are in [0, modulus), and they're equal mod modulus, hence equal
-      have h_mod : (modulus : ℤ) = m_val := by
-        simp only [modulus]
+lemma linear_representation_lemma {n : ℕ} (hn : n > 1) (f : ZMod n → ZMod n) :
+  ∃ (a_f : ℕ),
+  ∀ (a : ℕ) (_ha : a > a_f),
+  ∃ (m : ℕ) (_hm : m > a) (j : ZMod n → ZMod m) (_hj : Function.Injective j),
+  let p : ZMod m → ZMod m := fun i => (a * i : ZMod m)
+  j ∘ f = p ∘ j := by
+    haveI : NeZero n := ⟨by omega⟩
+    haveI : Fact (n > 0) := ⟨by omega⟩
+    let zmodToFin : ZMod n → Fin n := fun x => ⟨ZMod.val x, ZMod.val_lt x⟩
+    have h_increasing := adj_poly_strict_increasing f
+    let A := func_matrix f
+    let v : Fin n → ℤ := fun i => i.val + 1
+    let M := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).adjugate
+    let y := fun (x : ℤ) => M x *ᵥ v
+    let m := fun (x : ℤ) => (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).det
+    obtain ⟨x₀, hx₀⟩ := h_increasing
+    let p_m : Polynomial ℤ := (charmatrix A).det
+    let diff_poly_x := p_m - Polynomial.X
+    have h_n_ge_2 : n ≥ 2 := hn
+    have h_nontrivial : Nontrivial (Fin n) := by
+      rw [Fin.nontrivial_iff_two_le]
+      exact h_n_ge_2
+    have h_monic : p_m.Monic := charmatrix_det_monic A
+    have h_deg : p_m.natDegree = n := by
+      rw [charmatrix_det_natDegree A]
+      simp [Fintype.card_fin]
+    have h_deg_X : (Polynomial.X : Polynomial ℤ).natDegree = 1 := Polynomial.natDegree_X
+    have h_deg_diff : diff_poly_x.natDegree = n := by
+      rw [Polynomial.natDegree_sub_eq_left_of_natDegree_lt]
+      · exact h_deg
+      · rw [h_deg, h_deg_X]
+        exact h_n_ge_2
+    have h_diff_lead_pos : diff_poly_x.leadingCoeff > 0 := by
+      rw [Polynomial.leadingCoeff, h_deg_diff, Polynomial.coeff_sub]
+      have h_coeff_pm : p_m.coeff n = 1 := by
+        have : p_m.leadingCoeff = 1 := h_monic.leadingCoeff
+        rw [Polynomial.leadingCoeff, h_deg] at this
+        exact this
+      have h_coeff_X : (Polynomial.X : Polynomial ℤ).coeff n = 0 := by
+        rw [Polynomial.coeff_X]
+        split_ifs with h
+        · exfalso
+          rw [← h] at h_n_ge_2
+          omega
+        · rfl
+      rw [h_coeff_pm, h_coeff_X]
+      norm_num
+    have h_bound_nonneg : coeff_bound diff_poly_x ≥ 0 := by
+      unfold coeff_bound
+      apply Finset.sum_nonneg
+      intro i _
+      exact abs_nonneg (diff_poly_x.coeff i)
+    let a₀_int := max (x₀ + 1) (coeff_bound diff_poly_x + 1)
+    have h_a₀_ge_x₀ : a₀_int > x₀ := by
+      calc a₀_int ≥ x₀ + 1 := le_max_left _ _
+        _ > x₀ := by omega
+    have h_a₀_ge_bound : a₀_int > coeff_bound diff_poly_x := by
+      calc a₀_int ≥ coeff_bound diff_poly_x + 1 := le_max_right _ _
+        _ > coeff_bound diff_poly_x := by omega
+    have h_a₀_pos : a₀_int > 0 := by linarith [h_a₀_ge_x₀]
+    use (a₀_int - 1).toNat
+    intro a ha
+    let x : ℤ := a
+    have hx : x > x₀ := by
+      have h_a_bound : a > ((a₀_int - 1).toNat : ℤ) := by exact_mod_cast ha
+      have h_toNat : ((a₀_int - 1).toNat : ℤ) = a₀_int - 1 := by
+        apply Int.toNat_of_nonneg
         omega
-      -- Both values are in [0, modulus), and they're equal mod modulus, hence equal
-      have h1 : 0 ≤ y x i₁_fin := hy1_nonneg
-      have h2 : y x i₁_fin < (modulus : ℤ) := by omega
-      have h3 : 0 ≤ y x i₂_fin := hy2_nonneg
-      have h4 : y x i₂_fin < (modulus : ℤ) := by omega
-      -- Key insight: both values are in [0, modulus) and equal mod modulus
-      -- So they must be equal
-      -- From h_eq: (y x i₁_fin : ZMod modulus) = (y x i₂_fin : ZMod modulus)
-      -- This means their Int.emod modulus are equal
-      have h_emod_eq : y x i₁_fin % (modulus : ℤ) = y x i₂_fin % (modulus : ℤ) := by
-        have h_iff := ZMod.intCast_eq_intCast_iff (y x i₁_fin) (y x i₂_fin) modulus
-        rw [h_iff] at h_eq
-        rw [Int.ModEq] at h_eq
-        exact h_eq
-      -- For integers in [0, m), a % m = a
-      have h1_emod : y x i₁_fin % (modulus : ℤ) = y x i₁_fin := by
-        apply Int.emod_eq_of_lt
-        · exact h1
-        · exact h2
-      have h2_emod : y x i₂_fin % (modulus : ℤ) = y x i₂_fin := by
-        apply Int.emod_eq_of_lt
-        · exact h3
-        · exact h4
-      -- Therefore the values are equal
-      calc y x i₁_fin
-          = y x i₁_fin % (modulus : ℤ) := h1_emod.symm
-        _ = y x i₂_fin % (modulus : ℤ) := h_emod_eq
-        _ = y x i₂_fin := h2_emod
-
-    -- From strict ordering, i₁_fin = i₂_fin
-    have h_fin_eq : i₁_fin = i₂_fin := by
-      by_contra h_ne
-      cases' Ne.lt_or_gt h_ne with h_lt h_gt
-      · have : y x i₁_fin < y x i₂_fin := h_strict i₁_fin i₂_fin h_lt
-        omega
-      · have : y x i₂_fin < y x i₁_fin := h_strict i₂_fin i₁_fin h_gt
-        omega
-
-    -- Finally, i₁ = i₂
-    -- zmodToFin converts ZMod n → Fin n by taking the value
-    -- So i₁_fin = ⟨ZMod.val i₁, _⟩ and i₂_fin = ⟨ZMod.val i₂, _⟩
-    -- From h_fin_eq: i₁_fin = i₂_fin, so ZMod.val i₁ = ZMod.val i₂
-    have h_val_eq : ZMod.val i₁ = ZMod.val i₂ := by
-      have : i₁_fin.val = i₂_fin.val := congrArg Fin.val h_fin_eq
-      simp only [i₁_fin, i₂_fin, zmodToFin] at this
-      exact this
-    exact ZMod.val_injective n h_val_eq
-
-  · -- Prove linear relation: j (f i) = x · j i (mod modulus)
-    intro i
+      calc x = (a : ℤ) := rfl
+        _ > ((a₀_int - 1).toNat : ℤ) := h_a_bound
+        _ = a₀_int - 1 := h_toNat
+        _ ≥ x₀ := by linarith [h_a₀_ge_x₀]
+    have ⟨m_pos, h_nonneg, h_strict, h_bound⟩ := hx₀ x hx
+    let m_val := m x
+    let modulus : ℕ := m_val.natAbs
+    have modulus_pos : modulus > 0 := Int.natAbs_pos.mpr (ne_of_gt m_pos)
+    have modulus_gt_a : modulus > a := by
+      have h_m_gt_x : m_val > x := by
+        have h_x_ge_bound : x ≥ coeff_bound diff_poly_x := by
+          have h1 : x > a₀_int - 1 := by
+            calc x = (a : ℤ) := rfl
+              _ > ((a₀_int - 1).toNat : ℤ) := by exact_mod_cast ha
+              _ = a₀_int - 1 := by
+                apply Int.toNat_of_nonneg
+                omega
+          linarith [h_a₀_ge_bound]
+        have h_eval : diff_poly_x.eval x > 0 := (polynomial_positive diff_poly_x h_diff_lead_pos x h_x_ge_bound).2
+        rw [Polynomial.eval_sub, Polynomial.eval_X] at h_eval
+        have : p_m.eval x > x := by linarith
+        calc m_val = m x := rfl
+          _ = (x • (1 : Matrix (Fin n) (Fin n) ℤ) - A).det := rfl
+          _ = ((Matrix.scalar (Fin n)) x - A).det := by
+            congr 1
+            ext i j
+            simp [Matrix.scalar]
+          _ = p_m.eval x := by
+            unfold p_m
+            rw [charmatrix_det_eq_charpoly]
+            rw [Matrix.eval_charpoly]
+          _ > x := this
+      omega
+    let j : ZMod n → ZMod modulus := fun i =>
+      let i_fin := zmodToFin i
+      (y x i_fin : ZMod modulus)
+    use modulus, modulus_gt_a, j
+    have _hj_inj : Function.Injective j := by
+      intro i₁ i₂ h_eq
+      let i₁_fin := zmodToFin i₁
+      let i₂_fin := zmodToFin i₂
+      have hy1_nonneg : y x i₁_fin ≥ 0 := h_nonneg i₁_fin
+      have hy2_nonneg : y x i₂_fin ≥ 0 := h_nonneg i₂_fin
+      have hy1_lt : y x i₁_fin < m_val := h_bound i₁_fin
+      have hy2_lt : y x i₂_fin < m_val := h_bound i₂_fin
+      have h_y_eq : y x i₁_fin = y x i₂_fin := by
+        have h_mod : (modulus : ℤ) = m_val := by
+          simp only [modulus]
+          omega
+        have h1 : 0 ≤ y x i₁_fin := hy1_nonneg
+        have h2 : y x i₁_fin < (modulus : ℤ) := by omega
+        have h3 : 0 ≤ y x i₂_fin := hy2_nonneg
+        have h4 : y x i₂_fin < (modulus : ℤ) := by omega
+        have h_emod_eq : y x i₁_fin % (modulus : ℤ) = y x i₂_fin % (modulus : ℤ) := by
+          have h_iff := ZMod.intCast_eq_intCast_iff (y x i₁_fin) (y x i₂_fin) modulus
+          rw [h_iff] at h_eq
+          rw [Int.ModEq] at h_eq
+          exact h_eq
+        have h1_emod : y x i₁_fin % (modulus : ℤ) = y x i₁_fin := by
+          apply Int.emod_eq_of_lt
+          · exact h1
+          · exact h2
+        have h2_emod : y x i₂_fin % (modulus : ℤ) = y x i₂_fin := by
+          apply Int.emod_eq_of_lt
+          · exact h3
+          · exact h4
+        calc y x i₁_fin
+            = y x i₁_fin % (modulus : ℤ) := h1_emod.symm
+          _ = y x i₂_fin % (modulus : ℤ) := h_emod_eq
+          _ = y x i₂_fin := h2_emod
+      have h_fin_eq : i₁_fin = i₂_fin := by
+        by_contra h_ne
+        cases' Ne.lt_or_gt h_ne with h_lt h_gt
+        · have : y x i₁_fin < y x i₂_fin := h_strict i₁_fin i₂_fin h_lt
+          omega
+        · have : y x i₂_fin < y x i₁_fin := h_strict i₂_fin i₁_fin h_gt
+          omega
+      have h_val_eq : ZMod.val i₁ = ZMod.val i₂ := by
+        have : i₁_fin.val = i₂_fin.val := congrArg Fin.val h_fin_eq
+        simp only [i₁_fin, i₂_fin, zmodToFin] at this
+        exact this
+      exact ZMod.val_injective n h_val_eq
+    use _hj_inj
+    funext i
     let i_fin := zmodToFin i
     let fi_fin := zmodToFin (f i)
-
-    -- From adj_eq: y x fi_fin = x · y x i_fin - m_val · v i_fin
     have h_adj := adj_eq f x v i_fin
-    -- This gives: y x fi_fin = x · y x i_fin - m_val · i_fin.val
-    -- Working modulo m_val: y x fi_fin ≡ x · y x i_fin (mod m_val)
-
-    -- Show that fi_fin corresponds to f(i)
-    -- fi_fin = zmodToFin (f i) = ⟨ZMod.val (f i), _⟩
-    -- We need to match this with the result from adj_eq
-    -- adj_eq gives us information about ⟨ZMod.val (f (i_fin.val : ZMod n)), _⟩
-
-    -- First, simplify i_fin.val
     have h_ifin : (i_fin.val : ZMod n) = i := by
       simp only [i_fin, zmodToFin]
       exact ZMod.natCast_zmod_val i
-
-    -- So the index in h_adj is actually about f(i)
     have h_fi : ⟨ZMod.val (f (i_fin.val : ZMod n)), ZMod.val_lt _⟩ = fi_fin := by
       simp only [fi_fin, zmodToFin]
       congr 1
       rw [h_ifin]
-
-    -- Now we have:
-    -- h_adj: y x ⟨(f (i_fin.val : ZMod n)).val, _⟩ = x * y x i_fin - m_val * v i_fin
-    -- h_fi: ⟨(f (i_fin.val : ZMod n)).val, _⟩ = fi_fin
-    -- Need to prove: j (f i) = (x : ZMod modulus) * j i
-    -- where j (f i) = (y x fi_fin : ZMod modulus) and j i = (y x i_fin : ZMod modulus)
-
-    -- From h_adj and h_fi, we get: y x fi_fin = x * y x i_fin - m_val * i_fin.val
-    -- Cast to ZMod modulus: (y x fi_fin : ZMod modulus) = (x * y x i_fin - m_val * i_fin.val : ZMod modulus)
-    -- Since modulus = m_val.natAbs and m_val > 0, we have m_val ≡ 0 (modulus)
-    -- So: (y x fi_fin : ZMod modulus) = (x : ZMod modulus) * (y x i_fin : ZMod modulus)
-
-    -- Establish that y x fi_fin = x * y x i_fin - m_val * i_fin.val
     have h_y_relation : y x fi_fin = x * y x i_fin - m_val * v i_fin := by
       calc y x fi_fin
           = y x ⟨ZMod.val (f (i_fin.val : ZMod n)), ZMod.val_lt _⟩ := by rw [← h_fi]
         _ = x * y x i_fin - m_val * v i_fin := h_adj
-
-    -- Simplify: v i_fin = i_fin.val + 1 since v is defined as fun i => i.val + 1
     have h_v_eq : v i_fin = ((i_fin.val : ℤ) + 1) := rfl
-
-    -- Now cast to ZMod modulus
-    -- From h_y_relation: y x fi_fin = x * y x i_fin - m_val * v i_fin
-    -- where v i_fin = i_fin.val + 1
-    -- Casting to ZMod modulus and using m_val ≡ 0 (modulus):
+    show j (f i) = ((a : ZMod modulus) * j i : ZMod modulus)
     calc j (f i)
         = (y x fi_fin : ZMod modulus) := rfl
       _ = ((x * y x i_fin - m_val * v i_fin) : ZMod modulus) := by
@@ -1848,8 +1842,6 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
           push_cast
           ring
       _ = ((x * y x i_fin) : ZMod modulus) - 0 - 0 := by
-          -- Show both (m_val * i_fin.val) and m_val cast to 0 in ZMod modulus
-          -- since modulus = m_val.natAbs and m_val > 0
           congr 2
           · norm_cast
             refine (ZMod.intCast_zmod_eq_zero_iff_dvd (m_val * ↑↑i_fin) modulus).mpr ?_
@@ -1865,8 +1857,52 @@ theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n �
               exact Int.natAbs_of_nonneg (le_of_lt m_pos)
             rw [h_mod_eq]
       _ = ((x * y x i_fin) : ZMod modulus) := by ring
-      _ = (x : ZMod modulus) * (y x i_fin : ZMod modulus) := by ring
-      _ = (x : ZMod modulus) * j i := rfl
+      _ = (a : ZMod modulus) * j i := by simp only [x, j]; norm_cast
+
+/-
+Linear Representation Definition
+Let f: ℤ/nℤ → ℤ/nℤ be any function. A linear representation of f is an injective function
+j: ℤ/nℤ → ℤ/mℤ such that for all i∈ℤ/nℤ,
+j(f(i)) = a ⋅ j(i) in ℤ/mℤ,
+where m is a positive integer and a is a constant from ℤ/mℤ depending on f.
+-/
+def has_linear_representation {n : ℕ} [NeZero n] (f : ZMod n → ZMod n) : Prop :=
+  ∃ (m : ℕ) (_hm : m > 0) (a : ZMod m) (j : ZMod n → ZMod m),
+    Function.Injective j ∧ ∀ i : ZMod n, j (f i) = a * j i
+
+/-
+Main Theorem: Linear Representation of Functions
+Any function f: ℤ/nℤ → ℤ/nℤ has a linear representation.
+
+Proof strategy:
+Use linear_representation_lemma to get a threshold a₀ and construct a representation
+with any multiplier a ≥ a₀. We choose a = a₀ to get a specific linear representation.
+-/
+theorem linear_representation {n : ℕ} [NeZero n] [Fact (n > 0)] (f : ZMod n → ZMod n) :
+    has_linear_representation f := by
+  by_cases hn : n > 1
+  · obtain ⟨a_f, h_lemma⟩ := linear_representation_lemma hn f
+    obtain ⟨m, hm, j, hj, h_linear⟩ := h_lemma (a_f + 1) (by omega : a_f + 1 > a_f)
+    have hm_pos : m > 0 := by linarith
+    use m, hm_pos, ((a_f + 1) : ZMod m), j
+    constructor
+    · exact hj
+    · intro i
+      have := congr_fun h_linear i
+      simp at this
+      exact this
+  · have : n = 1 := by
+      have h1 : n > 0 := Fact.out
+      have h2 : ¬(n > 1) := hn
+      omega
+    subst this
+    use 1, (by norm_num : 1 > 0), (0 : ZMod 1), id
+    constructor
+    · exact Function.injective_id
+    · intro i
+      have : i = 0 := Subsingleton.elim i 0
+      have : f 0 = 0 := Subsingleton.elim (f 0) 0
+      simp [‹i = 0›, this]
 
 /-
 ## Explicit Example: Quadratic Function in ℤ/3ℤ

@@ -11,4 +11,5 @@ coeff_bound
 polynomial_positive
 adj_poly_strict_increasing
 has_linear_representation
+linear_representation_lemma
 linear_representation

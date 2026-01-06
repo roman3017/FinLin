@@ -6,7 +6,7 @@ package «finlin» {
 }
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.24.0"
+  "https://github.com/leanprover-community/mathlib4.git" @ "v4.26.0"
 
 @[default_target]
 lean_lib «FinLin» {
@@ -16,4 +16,4 @@ lean_lib «FinLin» {
 require checkdecls from git "https://github.com/PatrickMassot/checkdecls.git"
 
 require «doc-gen4» from git
-  "https://github.com/leanprover/doc-gen4" @ "v4.24.0"
+  "https://github.com/leanprover/doc-gen4" @ "v4.26.0"

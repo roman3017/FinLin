@@ -179,28 +179,69 @@ Applying Lemma \ref{lem:polynomial_positive} to these polynomials with positive 
 Let $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ be any function. A linear representation of $f$ is an injective function $j: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/m\mathbb{Z}$ 
 such that for all $i\in \{0,1,\ldots,n-1\}$,
 $$j(f(i)) = a \cdot j(i)$$
-in $\mathbb{Z}/m\mathbb{Z}$, where $m$ is a positive integer and $a$ is a constant from $\mathbb{Z}/m\mathbb{Z}$ depending on $f$.
+in $\mathbb{Z}/m\mathbb{Z}$, where $m$ is a positive integer and $a$ is a multiplier from $\mathbb{Z}/m\mathbb{Z}$.
 \end{definition}
+
+\begin{lemma}[Linear Representation Lemma]
+\label{lem:linear_representation_lemma}
+\lean{linear_representation_lemma}
+\leanok
+\uses{def:linear_representation,lem:adj_eq,lem:adj_poly_strict_increasing}
+For any function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ with $n > 1$, there exists an integer $a_f$ such that for any $a > a_f$, 
+we can construct a linear representation of $f$ with multiplier $a$ and modulus $m > a$.
+\end{lemma}
+
+\begin{proof}
+\leanok
+Let $A = A_f$ be the adjacency matrix of $f$ and let $v = (1,2,\ldots,n)^T$. 
+By Lemma \ref{lem:adj_poly_strict_increasing}, there exists $x_0$ such that for all integers $x > x_0$, 
+the entries $y_i$ of $y = \operatorname{adj}(xI - A)v$ satisfy:
+$$0 \leq y_0 < y_1 < \cdots < y_{n-1} < m(x)$$
+where $m(x) = \det(xI - A)$ is the characteristic polynomial of $A$.
+
+Since $n > 1$, the polynomial $m(x)$ is monic of degree $n \geq 2$. 
+Therefore, $m - \text{id}$ (where $\text{id}(x) = x$) is also monic of degree $n$, with leading coefficient $1 > 0$.
+
+By Lemma \ref{lem:polynomial_positive}, the polynomial $m - \text{id}$ is positive for all $x \geq |m - \text{id}|$.
+
+Set $a_f = \max(x_0, |m - \text{id}|)$. For any $a > a_f$, we have:
+\begin{itemize}
+\item $a > x_0$, so the strict inequalities $0 \leq y_0 < y_1 < \cdots < y_{n-1} < m(a)$ hold
+\item $a \geq |m - \text{id}|$, so $(m - \text{id})(a) = m(a) - a > 0$, which gives $m(a) > a$
+\end{itemize}
+
+Define:
+\begin{itemize}
+\item $m = m(a) = \det(aI - A)$ as the modulus (note: $m > a$ by construction)
+\item $j: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/m\mathbb{Z}$ by $j(i) = y_i \bmod m$, where $y = \operatorname{adj}(aI - A)v$
+\end{itemize}
+
+Since $0 \leq y_i < m$ for all $i$ and the $y_i$ are strictly increasing, $j$ is injective.
+
+
+By Lemma \ref{lem:adj_eq}, we have $y_{f(i)} = a \cdot y_i - m \cdot v_i$ for all $i$. 
+Taking this equation modulo $m$ gives:
+$$j(f(i)) \equiv a \cdot j(i) \pmod{m}$$
+
+Therefore, $j$ is a linear representation of $f$ with modulus $m > a$ and multiplier $a \in \mathbb{Z}/m\mathbb{Z}$.
+\end{proof}
 
 \begin{theorem}[Main Theorem]
 \label{thm:linear_representation}
 \lean{linear_representation}
 \leanok
-\uses{def:linear_representation,lem:adj_eq,lem:adj_poly_strict_increasing}
+\uses{def:linear_representation,lem:linear_representation_lemma}
 Any finite function $f: \mathbb{Z}/n\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$ has a linear representation.
 \end{theorem}
 
 \begin{proof}
 \leanok
-Let us define $m = \det(x I - A)$, $a = x$ and $j(i) = y_i$ for $i \in \{0,1,\ldots,n-1\}$, where $y = Mv$ with $v = (1,2,\ldots,n)^T$. 
-By Lemma \ref{lem:adj_poly_strict_increasing}, we can choose $x$ large enough such that:
-$$0 < y_0 < y_1 < \cdots < y_{n-1} < m$$
+For $n > 1$, apply Lemma \ref{lem:linear_representation_lemma} to obtain a threshold $a_f$ and choose $a = a_f + 1 > a_f$. 
+The lemma provides an explicit construction of a linear representation for $f$ with multiplier $a_f + 1$.
 
-Since $m$ is monic of degree $n$, we can choose $x$ such that $x < m(x)$. This shows that $j$ is injective and $a \in \{0,1,\ldots,m-1\}$.
-
-Lemma \ref{lem:adj_eq} shows that $y_{f(i)} = x y_i - m v_i$ and hence $y_{f(i)} \equiv x y_i \pmod{m}$.
-
-Therefore, $j$ is a linear representation of $f$ with modulus $m$ and constant $a$.
+For $n = 1$, the result is trivial: there is only one element in $\mathbb{Z}/1\mathbb{Z}$ (namely 0), 
+so any function satisfies $f(0) = 0$. We can use $m = 1$, the identity map $j = \operatorname{id}$, and multiplier $0$, 
+giving $j(f(0)) = 0 = 0 \cdot j(0)$ in $\mathbb{Z}/1\mathbb{Z}$.
 \end{proof}
 
 \subsection*{Examples}
