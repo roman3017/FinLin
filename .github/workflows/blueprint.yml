@@ -80,7 +80,8 @@ jobs:
           sudo apt-get install -y wget perl
           wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz
           tar -xzf install-tl-unx.tar.gz
-          cd install-tl-*
+          INSTALL_DIR=$(ls -d install-tl-*/)
+          cd "$INSTALL_DIR"
           sudo ./install-tl --profile=/dev/stdin <<< "
           selected_scheme scheme-basic
           TEXDIR /usr/local/texlive
