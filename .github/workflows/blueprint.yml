@@ -74,25 +74,63 @@ jobs:
           fi
 
       - name: Build blueprint and copy to `home_page/blueprint`
-        uses: xu-cheng/texlive-action@v2
-        with:
-          scheme: full
-          run: |
-            # Install necessary dependencies and build the blueprint
-            sudo apt-get update
-            sudo apt-get install -y make python3-pip git pkg-config graphviz graphviz-dev gcc
-            git config --global --add safe.directory $GITHUB_WORKSPACE
-            git config --global --add safe.directory `pwd`
-            python3 -m venv env
-            source env/bin/activate
-            pip install --upgrade pip requests wheel
-            pip install pygraphviz
-            pip install leanblueprint
-            leanblueprint pdf
-            mkdir -p home_page
-            cp blueprint/print/print.pdf home_page/blueprint.pdf
-            leanblueprint web
-            cp -r blueprint/web home_page/blueprint
+        run: |
+          # Install TeX Live
+          sudo apt-get update
+          sudo apt-get install -y wget perl
+          wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz
+          tar -xzf install-tl-unx.tar.gz
+          cd install-tl-*
+          sudo ./install-tl --profile=/dev/stdin <<< "
+          selected_scheme scheme-basic
+          TEXDIR /usr/local/texlive
+          TEXMFCONFIG ~/.texlive/texmf-config
+          TEXMFHOME ~/texmf
+          TEXMFLOCAL /usr/local/texlive/texmf-local
+          TEXMFSYSCONFIG /usr/local/texlive/texmf-config
+          TEXMFSYSVAR /usr/local/texlive/texmf-var
+          TEXMFVAR ~/.texlive/texmf-var
+          binary_x86_64-linux 1
+          instopt_adjustpath 1
+          instopt_adjustrepo 1
+          instopt_letter 0
+          instopt_portable 0
+          instopt_write18_restricted 1
+          tlpdbopt_autobackup 1
+          tlpdbopt_backupdir tlpkg/backups
+          tlpdbopt_create_formats 1
+          tlpdbopt_desktop_integration 0
+          tlpdbopt_file_assocs 0
+          tlpdbopt_generate_updmap 0
+          tlpdbopt_install_docfiles 0
+          tlpdbopt_install_srcfiles 0
+          tlpdbopt_post_code 1
+          tlpdbopt_sys_bin /usr/local/bin
+          tlpdbopt_sys_info /usr/local/info
+          tlpdbopt_sys_man /usr/local/man
+          tlpdbopt_w32_multi_user 1
+          "
+          
+          # Add TeX Live to PATH
+          export PATH="/usr/local/texlive/bin/x86_64-linux:$PATH"
+          
+          # Install additional packages needed for the blueprint
+          sudo tlmgr install geometry expl3 amssymb amsthm mathtools unicode-math hyperref cleveref tikz-cd fontawesome5
+          
+          # Install necessary dependencies and build the blueprint
+          sudo apt-get install -y make python3-pip git pkg-config graphviz graphviz-dev gcc
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          git config --global --add safe.directory `pwd`
+          python3 -m venv env
+          source env/bin/activate
+          pip install --upgrade pip requests wheel
+          pip install pygraphviz
+          pip install leanblueprint
+          leanblueprint pdf
+          mkdir -p home_page
+          cp blueprint/print/print.pdf home_page/blueprint.pdf
+          leanblueprint web
+          cp -r blueprint/web home_page/blueprint
 
       - name: Check declarations mentioned in the blueprint exist in Lean code
         run: |
