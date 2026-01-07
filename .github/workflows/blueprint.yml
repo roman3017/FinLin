@@ -108,6 +108,18 @@ jobs:
           find home_page/docs -name "*.trace" -delete
           find home_page/docs -name "*.hash" -delete
 
+      - name: Free up disk space
+        run: |
+          # Remove large build artifacts to free up space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # Clean up package manager caches
+          sudo apt-get clean
+          # Show disk space
+          df -h
+
       - name: Bundle dependencies
         uses: ruby/setup-ruby@v1
         with:
